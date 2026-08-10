@@ -1,0 +1,56 @@
+---
+import "../styles/global.css";
+import Cabecalho from "../components/Cabecalho.astro";
+import Rodape from "../components/Rodape.astro";
+import { cms } from "../lib/directus";
+
+interface Props {
+  titulo: string;
+  descricao?: string;
+}
+
+const { titulo, descricao } = Astro.props;
+
+// Buscado em tempo de build, uma vez por página. O site publicado não fala com o CMS.
+const config = await cms.configuracao();
+
+const nome = config.nome_igreja ?? "Igreja Bíblica Semear — Cristo Redentor";
+const tituloCompleto = titulo === nome ? titulo : `${titulo} · ${nome}`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href={canonical} />
+
+    <title>{tituloCompleto}</title>
+    {descricao && <meta name="description" content={descricao} />}
+
+    <meta property="og:site_name" content={nome} />
+    <meta property="og:title" content={tituloCompleto} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+  </head>
+
+  <body class="min-h-dvh bg-white text-neutral-900 antialiased">
+    <a
+      href="#conteudo"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:rounded focus:bg-neutral-900 focus:px-3 focus:py-2 focus:text-white"
+    >
+      Pular para o conteúdo
+    </a>
+
+    <Cabecalho />
+
+    <main id="conteudo">
+      <slot />
+    </main>
+
+    <Rodape config={config} />
+  </body>
+</html>

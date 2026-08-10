@@ -1,17 +1,77 @@
 ---
-import "../styles/global.css"
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { cms, enderecoCompleto, formatarHora } from "../lib/directus";
+
+const config = await cms.configuracao();
+const horarios = await cms.horarios();
+
+const nome = config.nome_igreja ?? "Igreja Bíblica Semear — Cristo Redentor";
+const endereco = enderecoCompleto(config);
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout
+  titulo={nome}
+  descricao={`Cultos, endereço e contato da ${nome}.`}
+>
+  <!--
+    Ordem deliberada: onde e quando ANTES de quem somos.
+    Quem chega ao site de uma igreja está decidindo se vem no domingo.
+    Ver docs/site-mapa-de-paginas.md.
+  -->
+  <section class="mx-auto max-w-5xl px-6 py-16">
+    <h1 class="text-4xl font-semibold text-balance sm:text-5xl">{nome}</h1>
+
+    {
+      endereco ? (
+        <p class="mt-4 text-lg text-neutral-700">{endereco}</p>
+      ) : (
+        <p class="mt-4 text-lg text-amber-700">
+          Endereço ainda não cadastrado no CMS — pendência que bloqueia a publicação.
+        </p>
+      )
+    }
+
+    {
+      config.whatsapp && (
+        <a
+          href={`https://wa.me/${config.whatsapp}`}
+          target="_blank"
+          rel="noopener"
+          class="mt-6 inline-block rounded-md bg-neutral-900 px-5 py-3 font-medium text-white"
+        >
+          Quero visitar
+        </a>
+      )
+    }
+  </section>
+
+  <section class="mx-auto max-w-5xl px-6 pb-16">
+    <h2 class="text-2xl font-semibold">Nossos encontros</h2>
+
+    {
+      horarios.length === 0 ? (
+        <p class="mt-4 text-neutral-500 italic">
+          Nenhum horário cadastrado no CMS ainda.
+        </p>
+      ) : (
+        <ul class="mt-6 grid gap-4 sm:grid-cols-2">
+          {horarios.map((h) => (
+            <li class="rounded-lg border border-neutral-200 p-5">
+              <p class="font-medium">{h.nome}</p>
+              <p class="mt-1 text-neutral-700">
+                <span class="capitalize">{h.dia_semana}</span>
+                {h.hora && <> · {formatarHora(h.hora)}</>}
+              </p>
+              {h.observacao && (
+                <p class="mt-1 text-sm text-neutral-500">{h.observacao}</p>
+              )}
+              {h.publico_alvo && (
+                <p class="mt-1 text-sm text-neutral-500">{h.publico_alvo}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+</BaseLayout>
