@@ -1,54 +1,73 @@
 # apps/api — API do CathedrAll
 
-.NET, ASP.NET Core, monólito modular. Domínio: `api.ibscristo.com.br`.
+.NET 10, ASP.NET Core, Minimal API. Monólito modular estrito com DDD tático
+([ADR-0012](../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md)).
+Domínio: `api.ibscristo.com.br`.
 
-> **Status:** apenas estrutura de pastas. Nenhum projeto .NET criado, nenhuma solution,
-> nenhum código.
+## Comandos
 
-## Projetos planejados
+```bash
+cd apps/api
+dotnet build
+dotnet test
+dotnet run --project src/CathedrAll.Api
+```
+
+Em desenvolvimento, o documento OpenAPI fica em `/openapi/v1.json`. `/health` é anônimo e
+existe para o monitoramento externo.
+
+## Estrutura
 
 ```
 src/
-  CathedrAll.Api/              endpoints, autenticação, OpenAPI, composição
-    Modules/
-      Pessoas/                 endpoints + handlers + modelos do módulo, juntos
-      Departamentos/
-      Eventos/
-      Escalas/
-  CathedrAll.Domain/           entidades, regras, invariantes — sem dependência de infra
-  CathedrAll.Infrastructure/   EF Core, migrations, integrações externas
+  CathedrAll.Api/         host: Program.cs, composição, /health
+  CathedrAll.Kernel/      mediator, behaviors, IModule, Result — ver README próprio
+  Modulos/
+    CathedrAll.Pessoas/   um projeto por módulo
 tests/
   CathedrAll.Tests/
 ```
 
-## Organização
+**Um projeto por módulo, e módulos não se referenciam.** Conversam por contratos e eventos
+publicados no Kernel. Isso torna a fronteira uma garantia de compilação: `Escalas` não
+alcança as entidades de `Pessoas` por acidente.
 
-Vertical slices. Uma pasta por módulo, contendo tudo daquele módulo. **Não** criar
-`Services/`, `Repositories/` e `DTOs/` no nível raiz — pastas por tipo técnico viram
-depósito e obrigam a abrir quatro diretórios para entender uma funcionalidade.
+Dentro de cada módulo, vertical slice: `Domain/`, `Application/`, `Infrastructure/`,
+`Endpoints/`. **Nada de pastas genéricas por tipo técnico** (`Services/`, `Repositories/`,
+`DTOs/`) — regra que sobreviveu do ADR-0004.
 
-## Na fundação, não no backlog
+Handlers são `internal`. Se um tipo precisa ser público, pergunte-se quem fora do módulo
+deveria enxergá-lo.
 
-Dado de membro de igreja é dado pessoal sensível (LGPD). Antes do primeiro CRUD:
+## Antes do primeiro CRUD
 
-- **Audit log** de leitura e escrita sobre dados de pessoa
-- **RBAC com escopo** — líder enxerga apenas o próprio departamento
-- **Soft delete** e política de retenção
-- **`ForwardedHeaders` configurado para origens confiáveis** — atrás de Cloudflare Tunnel
-  e Traefik, a aplicação enxerga o IP do container, não o do visitante. Sem isso o audit
-  log registra o IP errado, o que é pior do que não registrar: parece correto
-  ([ADR-0010](../../docs/adr/0010-cloudflare-tunnel-como-ingress.md))
+Dado de membro de igreja é dado pessoal sensível (LGPD). Nada disso é backlog:
 
-Retrofitar qualquer um dos três depois de haver dado real é caro.
+- [ ] **Audit log** por `SaveChangesInterceptor`, em tabela append-only
+- [ ] **Soft delete** com filtro global de consulta
+- [ ] **RBAC com escopo** — líder enxerga apenas o próprio departamento
+- [x] **`ForwardedHeaders`** restrito a origens confiáveis
+- [x] **`/health`** para monitoramento externo
+- [x] **OpenAPI** exposto — contrato de onde nasce `packages/api-client`
 
-## Superfície pública
+O `MapGroup("/api/pessoas")` está sem `RequireAuthorization()` porque o RBAC ainda não
+existe. **Nenhum endpoint pode ser adicionado ali antes disso.**
 
-`/public/*` é a única parte sem autenticação, somente leitura, e expõe **apenas** o que
-estiver explicitamente marcado como público (`Evento.Publico`). Nunca dado de pessoa.
-Todo endpoint novo sob `/public` merece revisão dedicada.
+## Configuração
 
-## Referências
+`ProxiesConfiaveis` — lista de IPs do proxy reverso. Vazia por padrão, e vazia significa
+que os cabeçalhos `X-Forwarded-*` são **ignorados**. Confiar neles sem restringir a origem
+torna o IP do cliente falsificável, e o audit log passa a registrar mentira convincente
+([ADR-0010](../../docs/adr/0010-cloudflare-tunnel-como-ingress.md)).
 
-- [ADR-0004](../../docs/adr/0004-backend-dotnet-monolito-modular.md)
-- [ADR-0006](../../docs/adr/0006-postgresql.md)
-- [ADR-0008](../../docs/adr/0008-pessoa-como-raiz-unica.md)
+## Banco
+
+`cathedrall`, no mesmo Postgres do CMS, com usuário próprio e sem permissão de conexão
+cruzada — verificado empiricamente. Sobe com `infra/compose`.
+
+## Nota sobre dependências
+
+`Microsoft.OpenApi` tem referência direta apenas para sobrepor uma transitiva com
+vulnerabilidade conhecida. O motivo está comentado no `CathedrAll.Api.csproj`. O build
+trata aviso como erro, incluindo alerta de vulnerabilidade — se falhar por `NU1903`, é
+isso.

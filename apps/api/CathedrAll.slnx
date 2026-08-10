@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CathedrAll.Api/CathedrAll.Api.csproj" />
+    <Project Path="src/CathedrAll.Kernel/CathedrAll.Kernel.csproj" />
+  </Folder>
+  <Folder Name="/src/Modulos/">
+    <Project Path="src/Modulos/CathedrAll.Pessoas/CathedrAll.Pessoas.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CathedrAll.Tests/CathedrAll.Tests.csproj" />
+  </Folder>
+</Solution>

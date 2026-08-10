@@ -23,3 +23,4 @@ de biblioteca de máscara de CPF.
 | [0009](0009-hospedagem-unificada-dokploy.md) | Hospedagem unificada no Dokploy | Aceito |
 | [0010](0010-cloudflare-tunnel-como-ingress.md) | Cloudflare Tunnel como ingress | Aceito |
 | [0011](0011-shadcn-tailwind-nos-dois-frontends.md) | shadcn/ui e Tailwind nos dois frontends | Aceito |
+| [0012](0012-monolito-modular-estrito-com-mediator-proprio.md) | Monólito modular estrito, DDD e mediator próprio | Aceito |

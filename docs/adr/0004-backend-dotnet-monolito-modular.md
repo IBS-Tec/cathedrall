@@ -1,6 +1,9 @@
 # ADR-0004 — Backend em .NET, monólito modular com vertical slices
 
 **Status:** Aceito · **Data:** 2026-08-10
+**Revisto por:** [ADR-0012](0012-monolito-modular-estrito-com-mediator-proprio.md) — a
+proibição de MediatR/CQRS e a organização por camadas foram substituídas. O restante
+(monólito, vertical slices, nada de pastas por tipo técnico) permanece.
 
 ## Contexto
 

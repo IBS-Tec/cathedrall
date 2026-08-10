@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CathedrAll.Kernel\CathedrAll.Kernel.csproj" />
+    <ProjectReference Include="..\Modulos\CathedrAll.Pessoas\CathedrAll.Pessoas.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+
+    <!--
+      Referência direta apenas para sobrepor uma transitiva vulnerável.
+
+      Microsoft.AspNetCore.OpenApi 10.0.10 arrasta Microsoft.OpenApi 2.0.0, que tem
+      vulnerabilidade de severidade alta (GHSA-v5pm-xwqc-g5wc). Testado: 2.0.1, 2.1.0,
+      2.3.12 e 2.5.0 continuam sinalizadas; 2.7.6 em diante estão limpas. O major 3.x
+      quebra o gerador de código do ASP.NET (IOpenApiMediaType.Example virou somente
+      leitura), então 2.x é o teto.
+
+      REMOVER quando o pacote do ASP.NET passar a trazer uma versão corrigida sozinho.
+      Conferir com "dotnet list package", passando as flags de vulnerable e de
+      include-transitive (não cabem aqui: comentário XML não aceita hífen duplo).
+    -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.11.0" />
+  </ItemGroup>
+
+</Project>
