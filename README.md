@@ -10,7 +10,14 @@ de eventos, mas nada além disso:
 | **Site institucional** | `ibscristo.com.br` — conteúdo editorial, estático | Visitantes, público geral |
 | **CathedrAll** | `app.ibscristo.com.br` — sistema de gestão eclesiástica | Secretaria, líderes, pastores |
 
-> **Status:** scaffold. Nenhuma aplicação implementada ainda.
+> **Status:** em construção. As três aplicações sobem; nenhuma está publicada.
+>
+> | Peça | Situação |
+> |---|---|
+> | Site | Casca no ar, consumindo o CMS. Falta conteúdo e as páginas internas |
+> | CMS | 8 coleções modeladas, schema versionado. Conteúdo em preenchimento |
+> | Admin | Roteamento, estado de servidor e formulários validados em pt-BR |
+> | API | Estrutura, mediator e `/health`. Sem persistência e sem domínio |
 
 ## Estrutura
 
@@ -23,30 +30,35 @@ packages/
   api-client/   Cliente TypeScript gerado a partir do OpenAPI da API
   brand/        Tokens de marca compartilhados entre site e admin
 infra/
-  compose/      Docker Compose (API, Postgres, Directus)
-  cms/          Snapshot de schema do Directus (versionado)
+  compose/      Docker Compose (Postgres + Directus)
+  cms/          Schema do Directus versionado e scripts de provisionamento
+  tunnel/       Configuração do Cloudflare Tunnel
   backup/       Scripts de backup/restauração
 docs/
-  arquitetura.md
-  dominio.md
-  runbook.md
-  adr/          Registros de decisão arquitetural
+  setup.md              do clone até tudo rodando
+  arquitetura.md        fronteiras entre as peças
+  dominio.md            modelo de domínio do MVP
+  site-mapa-de-paginas.md
+  runbook.md            operação e recuperação
+  adr/                  registros de decisão arquitetural
 ```
 
 ## Por onde começar
+
+**Acabou de clonar?** [`docs/setup.md`](docs/setup.md) leva do zero a tudo rodando.
 
 1. Leia [`docs/arquitetura.md`](docs/arquitetura.md) — visão geral e fronteiras entre as peças.
 2. Leia [`docs/adr/`](docs/adr/) — o *porquê* de cada escolha. Antes de propor uma mudança
    de stack, veja se a decisão já foi tomada e qual foi o trade-off aceito.
 3. Leia [`docs/dominio.md`](docs/dominio.md) — o modelo de domínio do MVP.
 
-## Pré-requisitos (quando houver o que rodar)
+## Pré-requisitos
 
-- Node.js 22+ e pnpm 9+
-- .NET 10 SDK
-- Docker + Docker Compose
+- Node.js 22+ e pnpm 11+
+- .NET SDK 10.0.302+ (fixado por `apps/api/global.json`)
+- Docker + Docker Compose v2
 
-Nada disso está instalado nesta máquina ainda.
+Passo a passo completo em [`docs/setup.md`](docs/setup.md).
 
 ## Contribuindo em Linux e Windows
 
