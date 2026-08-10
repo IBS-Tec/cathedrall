@@ -1,0 +1,39 @@
+# Node
+node_modules/
+.pnpm-store/
+dist/
+.astro/
+.vite/
+*.tsbuildinfo
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Ambiente — nunca versionar segredos
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
+
+# Dados e backups locais
+*.sqlite
+*.db
+/infra/backup/dumps/
+/infra/**/data/
+
+# Ferramentas e SO
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*

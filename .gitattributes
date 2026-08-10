@@ -1,0 +1,77 @@
+# Fim de linha — time misto Linux/Windows
+#
+# .gitattributes tem precedência sobre core.autocrlf, então nenhum contribuidor precisa
+# configurar nada na própria máquina. Este arquivo é a única fonte de verdade.
+#
+# Regra geral: LF no repositório E na cópia de trabalho, em todos os sistemas.
+# O código roda em container Linux; a cópia de trabalho no Windows deve ser igual ao que
+# vai para dentro do container. Visual Studio, VS Code e Rider lidam com LF sem reclamar.
+# As exceções abaixo são só onde CRLF é tecnicamente exigido.
+
+* text=auto eol=lf
+
+# ─── Exige LF (quebra de verdade com CRLF) ────────────────────────────────────────────
+# Script com CRLF dentro de container falha com "bad interpreter: /bin/sh^M".
+*.sh            text eol=lf
+*.bash          text eol=lf
+Dockerfile      text eol=lf
+*.dockerfile    text eol=lf
+.env.example    text eol=lf
+*.pem           text eol=lf
+
+# ─── Exige CRLF ───────────────────────────────────────────────────────────────────────
+# Processadores de lote do Windows precisam de CRLF.
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+# Visual Studio reescreve .sln com CRLF a cada save; sem isto, churn eterno no diff.
+*.sln           text eol=crlf
+
+# ─── Explicitamente texto ─────────────────────────────────────────────────────────────
+*.cs            text diff=csharp
+*.csproj        text
+*.props         text
+*.targets       text
+*.ts            text
+*.tsx           text
+*.js            text
+*.mjs           text
+*.jsx           text
+*.astro         text
+*.json          text
+*.jsonc         text
+*.css           text
+*.html          text
+*.md            text diff=markdown
+*.yml           text
+*.yaml          text
+*.sql           text
+*.svg           text
+*.txt           text
+
+# ─── Binários ─────────────────────────────────────────────────────────────────────────
+# "binary" = -text -diff: sem conversão de fim de linha, sem diff textual.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
+*.avif          binary
+*.ico           binary
+*.pdf           binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.otf           binary
+*.mp3           binary
+*.mp4           binary
+*.zip           binary
+*.gz            binary
+*.dll           binary
+*.exe           binary
+*.pfx           binary
+*.docx          binary
+*.xlsx          binary
+
+# ─── Gerados ──────────────────────────────────────────────────────────────────────────
+pnpm-lock.yaml                          text eol=lf linguist-generated=true
+packages/api-client/src/generated/**     text eol=lf linguist-generated=true

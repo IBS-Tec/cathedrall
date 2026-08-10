@@ -1,0 +1,8 @@
+packages:
+  - "apps/site"
+  - "apps/admin"
+  - "packages/*"
+allowBuilds:
+  esbuild: true
+
+# apps/api é .NET e não participa do workspace pnpm.

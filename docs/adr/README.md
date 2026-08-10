@@ -1,0 +1,25 @@
+# Registros de Decisão Arquitetural (ADR)
+
+Um arquivo por decisão, numerado, imutável depois de aceito. Se a decisão mudar, escreva
+um ADR novo que a substitua (`Substitui o ADR-000X`) — não edite o antigo. O valor está
+em preservar o raciocínio da época, inclusive quando ele se mostrou errado.
+
+Formato: contexto → decisão → consequências (as boas **e** as ruins aceitas).
+
+Escreva um ADR quando a decisão for cara de reverter: escolha de stack, modelo de dados
+central, fronteira entre sistemas, estratégia de autenticação. Não escreva para escolha
+de biblioteca de máscara de CPF.
+
+| # | Decisão | Status |
+|---|---|---|
+| [0001](0001-monorepo-unico.md) | Monorepo único para site, SPA e API | Aceito |
+| [0002](0002-site-astro-estatico.md) | Site institucional em Astro, estático | Aceito · hospedagem revista pelo [0009](0009-hospedagem-unificada-dokploy.md) |
+| [0003](0003-cms-directus-self-hosted.md) | Directus self-hosted como CMS | Aceito |
+| [0004](0004-backend-dotnet-monolito-modular.md) | Backend .NET, monólito modular | Aceito |
+| [0005](0005-frontend-react-spa-com-trilhos.md) | SPA React com trilhos rígidos | Aceito · componentes revistos pelo [0011](0011-shadcn-tailwind-nos-dois-frontends.md) |
+| [0006](0006-postgresql.md) | PostgreSQL como banco único | Aceito |
+| [0007](0007-congregacao-unica.md) | Congregação única, sem multi-tenancy | Aceito |
+| [0008](0008-pessoa-como-raiz-unica.md) | `Pessoa` como raiz única de cadastro | Aceito |
+| [0009](0009-hospedagem-unificada-dokploy.md) | Hospedagem unificada no Dokploy | Aceito |
+| [0010](0010-cloudflare-tunnel-como-ingress.md) | Cloudflare Tunnel como ingress | Aceito |
+| [0011](0011-shadcn-tailwind-nos-dois-frontends.md) | shadcn/ui e Tailwind nos dois frontends | Aceito |
