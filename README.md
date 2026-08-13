@@ -40,7 +40,8 @@ docs/
   dominio.md            modelo de domínio do MVP
   site-mapa-de-paginas.md
   runbook.md            operação e recuperação
-  adr/                  registros de decisão arquitetural
+  adr/                  registros de decisão arquitetural — o porquê
+  specs/                o que cada módulo faz, em detalhe de implementação
 ```
 
 ## Por onde começar
@@ -51,6 +52,8 @@ docs/
 2. Leia [`docs/adr/`](docs/adr/) — o *porquê* de cada escolha. Antes de propor uma mudança
    de stack, veja se a decisão já foi tomada e qual foi o trade-off aceito.
 3. Leia [`docs/dominio.md`](docs/dominio.md) — o modelo de domínio do MVP.
+4. Vai contribuir? [`CONTRIBUTING.md`](CONTRIBUTING.md) — o fluxo do trabalho, a Definição
+   de Pronta e a Definição de Feita.
 
 ## Pré-requisitos
 
