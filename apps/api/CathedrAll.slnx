@@ -1,6 +1,6 @@
 <Solution>
   <Folder Name="/src/" />
-  <Folder Name="/src/Bootstraper/">
-    <Project Path="src/Bootstraper/CathedrAll.Api/CathedrAll.Api.csproj" />
+  <Folder Name="/src/Bootstrapper/">
+    <Project Path="src/Bootstrapper/CathedrAll.Api/CathedrAll.Api.csproj" />
   </Folder>
 </Solution>
