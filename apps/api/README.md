@@ -46,6 +46,16 @@ O projeto se chama `.Tests` de propósito: o `Directory.Build.props` reconhece o
 relaxa as regras que brigam com teste. A localização em `tests/` é livre — a condição é
 por nome, não por pasta.
 
+**xUnit v3 sobre a Microsoft.Testing.Platform.** Isso muda a forma do projeto: ele é um
+`Exe`, não uma biblioteca, porque cada assembly de teste hospeda o próprio runner. Some
+o `Microsoft.NET.Test.Sdk` e o `xunit.runner.visualstudio` — a plataforma substitui os
+dois. O `global.json` escolhe esse runner para o `dotnet test`.
+
+Uma consequência prática: argumentos que o `dotnet test` antigo aceitava agora são
+repassados ao executável de teste, e ele recusa o que não conhece. `dotnet test --nologo`,
+por exemplo, falha com "opção desconhecida" e **zero testes executados** — o que parece
+suíte quebrada, mas é só a flag.
+
 O destino é o monólito modular estrito do
 [ADR-0012](../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md): um
 projeto por módulo, e **módulos não se referenciam** — conversam por contratos e eventos
@@ -54,7 +64,7 @@ convenção que alguém precisa lembrar. Nada disso existe ainda.
 
 ## Build
 
-Três arquivos governam o build, todos na raiz de `apps/api` e aplicados a qualquer
+Quatro arquivos governam o build, todos na raiz de `apps/api` e aplicados a qualquer
 projeto criado abaixo dela:
 
 | Arquivo | Papel |
@@ -62,6 +72,7 @@ projeto criado abaixo dela:
 | `Directory.Build.props` | Propriedades comuns e analisadores |
 | `Directory.Packages.props` | Versão dos pacotes, centralizada |
 | `.editorconfig` | Convenções de C#, complementa o da raiz do monorepo |
+| `global.json` | Versão do SDK e runner de teste |
 
 **Aviso é erro** (`TreatWarningsAsErrors`), e a análise roda em `AnalysisMode=All` com
 StyleCop e Sonar. É severo de propósito: com um mantenedor só, aviso ignorado vira aviso
