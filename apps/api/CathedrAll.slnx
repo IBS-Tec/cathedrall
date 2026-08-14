@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/CathedrAll.Api.Tests/CathedrAll.Api.Tests.csproj" />
+  </Folder>
   <Folder Name="/src/Bootstrapper/">
     <Project Path="src/Bootstrapper/CathedrAll.Api/CathedrAll.Api.csproj" />
   </Folder>

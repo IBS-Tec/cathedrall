@@ -12,10 +12,9 @@
 ```bash
 cd apps/api
 dotnet build
+dotnet test
 dotnet run --project src/Bootstrapper/CathedrAll.Api
 ```
-
-Ainda não há `dotnet test`: o projeto de testes não foi criado.
 
 ## Endpoints
 
@@ -33,8 +32,19 @@ ele vai numa rota separada e autenticada, não nesta.
 ```
 src/
   Bootstrapper/
-    CathedrAll.Api/       host; hoje só sobe a aplicação
+    CathedrAll.Api/       host; sobe a aplicação e mapeia /health
+tests/
+  CathedrAll.Api.Tests/   testes de integração do host
 ```
+
+Os testes sobem a aplicação inteira em memória, com `WebApplicationFactory`, e batem nos
+endpoints por HTTP. Sem mock e sem porta de rede: é o `Program.cs` de verdade que
+responde. Para um host desta espessura, testar por dentro não valeria a pena — o que pode
+quebrar é justamente o encanamento entre rota, middleware e serviço registrado.
+
+O projeto se chama `.Tests` de propósito: o `Directory.Build.props` reconhece o sufixo e
+relaxa as regras que brigam com teste. A localização em `tests/` é livre — a condição é
+por nome, não por pasta.
 
 O destino é o monólito modular estrito do
 [ADR-0012](../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md): um
