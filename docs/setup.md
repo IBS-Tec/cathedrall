@@ -128,7 +128,7 @@ Quatro terminais, ou rode um de cada vez:
 | `docker compose ps` (em `infra/compose`) | — | `postgres` e `directus` Up |
 | `pnpm site:dev` | http://localhost:4321 | Nome da igreja, endereço e "Nossos encontros" |
 | `pnpm admin:dev` | http://localhost:5173 | Barra "CathedrAll" e o painel |
-| `dotnet run --project apps/api/src/Bootstrapper/CathedrAll.Api` | porta impressa no console | `/health` responde `Healthy` em texto puro |
+| `dotnet run --project apps/api/src/Bootstrapper/CathedrAll.Api` | porta impressa no console | `/health` responde `Healthy`. `/health/ready` responde `Healthy` só com o Compose no ar e a connection string configurada |
 
 Formulário de referência do admin: **http://localhost:5173/pessoas/nova** — enviar vazio
 deve mostrar erros de validação **em português**. Se aparecerem em inglês, o

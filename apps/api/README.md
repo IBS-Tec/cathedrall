@@ -18,14 +18,49 @@ dotnet run --project src/Bootstrapper/CathedrAll.Api
 
 ## Endpoints
 
-| Rota | Auth | Descrição |
-| --- | --- | --- |
-| `GET /health` | anônimo | `200 Healthy` ou `503 Unhealthy`, em texto puro |
+| Rota | Auth | Verifica | Descrição |
+| --- | --- | --- | --- |
+| `GET /health` | anônimo | nada | O processo responde. Sempre `200 Healthy` |
+| `GET /health/ready` | anônimo | Postgres | `200 Healthy` ou `503 Unhealthy` |
 
-`/health` é anônimo de propósito — o monitoramento externo não tem credencial. Por isso
-ele **não** expõe detalhes: um health check tagarela conta a um desconhecido quais
-dependências você tem e como elas falham. Se um dia precisarmos de diagnóstico detalhado,
-ele vai numa rota separada e autenticada, não nesta.
+**São perguntas diferentes, e a separação é deliberada.** `/health` responde "estou vivo,
+me reinicie se eu não responder isto". `/health/ready` responde "consigo atender pedidos
+de verdade" — hoje isso significa alcançar o banco.
+
+Misturar as duas sai caro. O healthcheck do container aponta para `/health`; no Docker
+Swarm, que é o que o Dokploy usa ([ADR-0009](../../docs/adr/0009-hospedagem-unificada-dokploy.md)),
+tarefa marcada como *unhealthy* é reagendada. Se o banco entrasse nessa conta, o Postgres
+cair derrubaria a API em ciclo de reinício — que não conserta o banco, apaga o log e
+atrasa a volta. O monitoramento externo e o alerta apontam para `/health/ready`.
+
+Isso vale ainda mais se o banco um dia sair da máquina. Instância gerenciada em plano
+gratuito costuma dormir por inatividade: indisponibilidade **esperada**, que precisa
+aparecer no alerta sem reiniciar coisa nenhuma.
+
+Os dois são anônimos de propósito — o monitoramento externo não tem credencial. Por isso
+**nenhum expõe detalhes**: o corpo é `Healthy` ou `Unhealthy` em texto puro. Um health
+check tagarela conta a um desconhecido quais dependências você tem e como elas falham. Há
+teste garantindo que nem o nome do check nem o host do banco vazam no corpo. Se um dia
+precisarmos de diagnóstico detalhado, ele vai numa rota separada e autenticada.
+
+O check do Postgres é escrito à mão (`PostgresHealthCheck`): abre conexão e roda
+`SELECT 1`, com timeout de 3 segundos. Banco fora do ar recusa conexão rápido — o caso
+ruim é banco **pendurado**, e sem timeout a requisição ficaria esperando até o monitor
+desistir, sem distinguir isso de processo morto. Não usamos o pacote da comunidade
+(`AspNetCore.HealthChecks.NpgSql`): ele está uma major atrás do nosso .NET e traria
+dezenas de checks que não usamos, para substituir dez linhas.
+
+Repare no que ele **não** verifica: migrações aplicadas, versão de schema, ou se o usuário
+tem só as permissões que deveria. `SELECT 1` funciona para qualquer usuário conectado. A
+separação de bancos do [ADR-0006](../../docs/adr/0006-postgresql.md) é garantida pelo
+`initdb` e por teste de integração, não por health check.
+
+### Configuração
+
+`ConnectionStrings:CathedrAll` — conexão com o banco `cathedrall`. Sem ela,
+`/health/ready` responde `503`, que é a resposta correta: sem banco a API não está pronta.
+Em desenvolvimento vai no `appsettings.Development.json`, que é ignorado pelo git; em
+produção, na variável `ConnectionStrings__CathedrAll`. Nunca versionada.
 
 ## Estrutura
 
