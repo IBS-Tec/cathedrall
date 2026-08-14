@@ -67,17 +67,30 @@ produção, na variável `ConnectionStrings__CathedrAll`. Nunca versionada.
 ```
 src/
   Bootstrapper/
-    CathedrAll.Api/       host; sobe a aplicação e mapeia /health
+    CathedrAll.Api/                  host; sobe a aplicação e mapeia /health
+  Kernel/
+    CathedrAll.Kernel.Domain/        Result, Error, ErrorType
 tests/
-  CathedrAll.Api.Tests/   testes de integração do host
+  CathedrAll.Api.Tests/              testes de integração do host
+  CathedrAll.Kernel.Domain.Tests/    testes unitários do kernel
 ```
 
-Os testes sobem a aplicação inteira em memória, com `WebApplicationFactory`, e batem nos
-endpoints por HTTP. Sem mock e sem porta de rede: é o `Program.cs` de verdade que
+O kernel compartilhado tem [README próprio](src/Kernel/README.md), com a regra que decide
+quando uma falha é `Result` e quando é exceção. É a única parte dele que precisa estar na
+cabeça de quem escreve um handler.
+
+**Cada projeto de origem tem o próprio projeto de teste.** Um projeto de teste único
+precisaria referenciar todos os módulos, e seria o único assembly onde tipos de módulos
+diferentes coexistem — daria para escrever um teste que prova algo que o código de
+produção não consegue fazer. Além disso os tipos de teste são diferentes: os do kernel são
+unitários e rodam em menos de meio segundo, enquanto os do host sobem a aplicação inteira.
+
+Os testes **do host** sobem a aplicação inteira em memória, com `WebApplicationFactory`, e
+batem nos endpoints por HTTP. Sem mock e sem porta de rede: é o `Program.cs` de verdade que
 responde. Para um host desta espessura, testar por dentro não valeria a pena — o que pode
 quebrar é justamente o encanamento entre rota, middleware e serviço registrado.
 
-O projeto se chama `.Tests` de propósito: o `Directory.Build.props` reconhece o sufixo e
+Os projetos se chamam `.Tests` de propósito: o `Directory.Build.props` reconhece o sufixo e
 relaxa as regras que brigam com teste. A localização em `tests/` é livre — a condição é
 por nome, não por pasta.
 
@@ -95,7 +108,8 @@ O destino é o monólito modular estrito do
 [ADR-0012](../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md): um
 projeto por módulo, e **módulos não se referenciam** — conversam por contratos e eventos
 no kernel compartilhado. Isso torna a fronteira uma garantia de compilação, não uma
-convenção que alguém precisa lembrar. Nada disso existe ainda.
+convenção que alguém precisa lembrar. Do destino existe só o começo do kernel — nenhum
+módulo foi escrito.
 
 ## Build
 
