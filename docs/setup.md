@@ -178,6 +178,26 @@ O log fica em
 `C# Dev Kit - Test Explorer.log` mostra o sintoma; o erro de verdade está nos arquivos
 de `ServiceHub/`.
 
+**O VS Code insiste em compilar um projeto que você já apagou.** O log mostra
+`Building project: .../AlgoAntigo.csproj` seguido de `Build failed`, para um `.csproj`
+que não existe mais. O C# Dev Kit mantém um cache de projetos que **acumula e nunca
+remove entradas** — todo projeto criado e depois apagado fica lá para sempre.
+
+O cache mora no banco de estado do workspace, na chave `ms-dotnettools.csdevkit`:
+
+```
+~/.config/Code/User/workspaceStorage/<hash>/state.vscdb
+```
+
+Ache o `<hash>` procurando o `workspace.json` que aponta para este repositório. **Feche o
+VS Code antes de mexer** — ele reescreve o banco ao sair e desfaz a edição. Com o editor
+fechado, o caminho mais simples é apagar o diretório `<hash>` inteiro: a extensão
+reconstrói tudo na próxima abertura, ao custo de perder o layout de editores e o
+histórico de arquivos abertos daquele workspace.
+
+A árvore do Test Explorer guarda os fantasmas em separado, na chave `testing.treeState`
+do mesmo banco. Se o projeto sumiu do cache mas continua aparecendo no painel, é ela.
+
 **VS Code reclamando de `astro/tsconfigs/strict` ou de tipos que existem.** Servidor de
 TypeScript com estado velho. Paleta de comandos → `TypeScript: Restart TS Server`.
 
