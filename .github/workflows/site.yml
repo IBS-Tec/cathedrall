@@ -1,0 +1,54 @@
+name: site
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  filtro:
+    name: filtro (site)
+    runs-on: ubuntu-latest
+    outputs:
+      mudou: ${{ steps.paths.outputs.site }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: paths
+        with:
+          filters: |
+            site:
+              - 'apps/site/**'
+              - 'packages/brand/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/site.yml'
+
+  verificar:
+    name: site
+    needs: filtro
+    if: needs.filtro.outputs.mudou == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar
+        run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm --filter @cathedrall/site check
