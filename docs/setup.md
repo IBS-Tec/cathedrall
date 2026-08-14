@@ -128,7 +128,7 @@ Quatro terminais, ou rode um de cada vez:
 | `docker compose ps` (em `infra/compose`) | — | `postgres` e `directus` Up |
 | `pnpm site:dev` | http://localhost:4321 | Nome da igreja, endereço e "Nossos encontros" |
 | `pnpm admin:dev` | http://localhost:5173 | Barra "CathedrAll" e o painel |
-| `dotnet run --project apps/api/src/CathedrAll.Api` | porta impressa no console | `/health` responde `{"status":"ok"}` |
+| `dotnet run --project apps/api/src/Bootstrapper/CathedrAll.Api` | porta impressa no console | `/health` responde `Healthy`. `/health/ready` responde `Healthy` só com o Compose no ar e a connection string configurada |
 
 Formulário de referência do admin: **http://localhost:5173/pessoas/nova** — enviar vazio
 deve mostrar erros de validação **em português**. Se aparecerem em inglês, o
@@ -147,6 +147,56 @@ vermelho que site publicado sem endereço e sem horário. Suba o Compose antes.
 
 **`ASPNETCORE_URLS` é ignorada pelo `dotnet run`.** O `launchSettings.json` tem
 precedência. Para fixar a porta, use `--no-launch-profile`.
+
+**Linux, .NET instalado pelo script da Microsoft: o VS Code não roda os testes.** O erro
+que aparece é enganoso — "Connection to test host was cancelled before it could be
+established", sugerindo tempo esgotado. Não é: o processo morre em milissegundos.
+
+A causa está no log da extensão, não na mensagem da interface:
+
+```
+You must install .NET to run this application.
+.NET location: Not found
+```
+
+O C# Dev Kit executa o binário nativo do projeto de teste, e esse binário procura o
+runtime em `DOTNET_ROOT`, `/etc/dotnet/install_location_x64` e `/usr/share/dotnet`. Quem
+instalou em `~/.dotnet` tem a variável definida no perfil do shell, mas o VS Code aberto
+pelo lançador gráfico não herda o perfil. Registre o local de uma vez:
+
+```bash
+sudo mkdir -p /etc/dotnet
+echo "$HOME/.dotnet" | sudo tee /etc/dotnet/install_location_x64
+```
+
+Recarregue a janela depois. Vale para qualquer aplicação .NET da máquina, não só para os
+testes — executar ou depurar a API pelo VS Code falha do mesmo jeito. Quem instalou o
+.NET pelo pacote da distribuição não passa por isso.
+
+O log fica em
+`~/.config/Code/logs/<sessão>/window1/exthost/ms-dotnettools.csdevkit/`. O arquivo
+`C# Dev Kit - Test Explorer.log` mostra o sintoma; o erro de verdade está nos arquivos
+de `ServiceHub/`.
+
+**O VS Code insiste em compilar um projeto que você já apagou.** O log mostra
+`Building project: .../AlgoAntigo.csproj` seguido de `Build failed`, para um `.csproj`
+que não existe mais. O C# Dev Kit mantém um cache de projetos que **acumula e nunca
+remove entradas** — todo projeto criado e depois apagado fica lá para sempre.
+
+O cache mora no banco de estado do workspace, na chave `ms-dotnettools.csdevkit`:
+
+```
+~/.config/Code/User/workspaceStorage/<hash>/state.vscdb
+```
+
+Ache o `<hash>` procurando o `workspace.json` que aponta para este repositório. **Feche o
+VS Code antes de mexer** — ele reescreve o banco ao sair e desfaz a edição. Com o editor
+fechado, o caminho mais simples é apagar o diretório `<hash>` inteiro: a extensão
+reconstrói tudo na próxima abertura, ao custo de perder o layout de editores e o
+histórico de arquivos abertos daquele workspace.
+
+A árvore do Test Explorer guarda os fantasmas em separado, na chave `testing.treeState`
+do mesmo banco. Se o projeto sumiu do cache mas continua aparecendo no painel, é ela.
 
 **VS Code reclamando de `astro/tsconfigs/strict` ou de tipos que existem.** Servidor de
 TypeScript com estado velho. Paleta de comandos → `TypeScript: Restart TS Server`.

@@ -1,0 +1,72 @@
+name: Defeito
+description: Alguma coisa não funciona como deveria
+labels: ["defeito"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **Não cole dado de pessoa aqui** — nome completo, CPF, telefone, endereço, foto.
+        Nem em print de tela. Descreva com "um membro cadastrado", "a pessoa X". Issue é
+        texto público e permanente, e dado de membro de igreja é dado sensível pela LGPD.
+
+        Se o defeito é a documentação estar errada, isso também conta — abra do mesmo jeito.
+        Manual desatualizado é defeito.
+
+  - type: dropdown
+    id: onde
+    attributes:
+      label: Onde aconteceu
+      options:
+        - Site (ibscristo.com.br)
+        - CathedrAll (app)
+        - Painel do CMS
+        - Na minha máquina, montando o ambiente
+        - Não sei dizer
+    validations:
+      required: true
+
+  - type: textarea
+    id: passos
+    attributes:
+      label: O que você fez
+      description: Passo a passo, do jeito que outra pessoa consiga repetir.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava que acontecesse
+    validations:
+      required: true
+
+  - type: textarea
+    id: aconteceu
+    attributes:
+      label: O que aconteceu
+      description: Mensagem de erro completa, se houver. Print ajuda — lembrando de não expor dado de pessoa.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gravidade
+    attributes:
+      label: Está atrapalhando agora?
+      options:
+        - "Sim — tem gente sem conseguir trabalhar"
+        - "Sim, mas dá para contornar"
+        - "Não, é incômodo"
+    validations:
+      required: true
+
+  - type: textarea
+    id: ambiente
+    attributes:
+      label: Ambiente
+      description: Só se for defeito de desenvolvimento — sistema operacional, navegador, versões.
+    validations:
+      required: false

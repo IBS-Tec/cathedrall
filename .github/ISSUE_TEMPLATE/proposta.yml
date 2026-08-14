@@ -1,0 +1,60 @@
+name: Proposta de mudança
+description: Rever uma decisão de arquitetura ou de stack já tomada
+labels: ["proposta", "adr"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discordar de uma decisão é bem-vindo — é assim que ADR ruim é corrigido. O que não
+        fazemos é editar o ADR antigo nem contornar a decisão no código sem discutir.
+
+        Antes de abrir: leia o ADR que trata do assunto em `docs/adr/`. Quase sempre o
+        trade-off que incomoda já está escrito lá, aceito de propósito.
+
+        Se a decisão for **barata de reverter** (uma biblioteca, um utilitário), não precisa
+        de proposta nem de ADR — abra uma tarefa e siga.
+
+  - type: input
+    id: adr
+    attributes:
+      label: ADR relacionado
+      description: Qual decisão você quer rever. Se não existe ADR sobre o assunto, escreva "nenhum".
+      placeholder: "ADR-0005 — SPA React com trilhos rígidos"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposta
+    attributes:
+      label: O que você propõe no lugar
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivo
+    attributes:
+      label: O que mudou desde a decisão original
+      description: |
+        A pergunta que decide a proposta. O ADR aceitou um custo de olhos abertos — o que
+        você viu que mostra que esse custo é maior do que se esperava, ou que o contexto
+        que o justificava não vale mais?
+    validations:
+      required: true
+
+  - type: textarea
+    id: custo
+    attributes:
+      label: O que a mudança quebra
+      description: |
+        Código a reescrever, dado a migrar, documentação a refazer, o que os voluntários
+        precisariam reaprender. Proposta sem esta seção não é comparável com o que já existe.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contexto
+    attributes:
+      label: Contexto do time
+      options:
+        - label: Considerei que somos um mantenedor e voluntários iniciantes com rotatividade alta, e que a solução entediante e legível ganha da elegante
+          required: true

@@ -1,0 +1,89 @@
+name: Tarefa
+description: Uma fatia de uma spec, pronta para alguém pegar
+labels: ["tarefa"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Uma tarefa nasce de uma spec, nunca de uma conversa. Se ainda não existe spec para
+        este módulo, escreva a spec primeiro — o modelo está em `docs/specs/0000-modelo.md`.
+
+        Enquanto qualquer campo abaixo estiver no chute, **não abra a issue**. Tarefa
+        incompleta é respondida por adivinhação de quem estiver codando às onze da noite.
+
+  - type: dropdown
+    id: frente
+    attributes:
+      label: Frente
+      description: Onde o trabalho acontece
+      options:
+        - Site (Astro)
+        - Admin (React SPA)
+        - API (.NET)
+        - CMS (Directus)
+        - Infra / CI
+        - Documentação
+    validations:
+      required: true
+
+  - type: input
+    id: spec
+    attributes:
+      label: Spec e seção
+      description: De onde esta tarefa sai
+      placeholder: "docs/specs/0001-pessoa.md, seção 6 — API"
+    validations:
+      required: true
+
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: O que precisa existir no fim
+      description: Duas ou três frases. O resultado, não o caminho.
+    validations:
+      required: true
+
+  - type: textarea
+    id: aceite
+    attributes:
+      label: Critério de aceite
+      description: |
+        Verificável rodando o sistema. Quem revisa vai conferir bullet por bullet.
+        "Funciona direito" não é critério; "CPF duplicado devolve 409 com a mensagem X" é.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: onde
+    attributes:
+      label: Por onde começar
+      description: |
+        Arquivos ou pastas prováveis, e um exemplo parecido já existente no repositório
+        para servir de referência. É o que separa uma tarefa de 3 horas de uma de 3 dias
+        para quem chegou esta semana.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fora
+    attributes:
+      label: Fora do escopo desta tarefa
+      description: O que alguém razoavelmente faria junto e aqui não deve fazer.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: pronta
+    attributes:
+      label: Definição de Pronta
+      description: Conferido por quem abriu a issue
+      options:
+        - label: Nenhuma decisão de domínio em aberto — nada aqui depende de perguntar à secretaria ou ao líder
+          required: true
+        - label: Cabe em uma sessão de 2 a 4 horas
+          required: true
+        - label: Não depende de nenhuma outra tarefa ainda não concluída
+          required: false
