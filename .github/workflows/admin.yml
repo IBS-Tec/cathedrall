@@ -1,0 +1,60 @@
+name: admin
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  filtro:
+    name: filtro (admin)
+    runs-on: ubuntu-latest
+    outputs:
+      mudou: ${{ steps.paths.outputs.admin }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: paths
+        with:
+          filters: |
+            admin:
+              - 'apps/admin/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/admin.yml'
+
+  verificar:
+    name: admin
+    needs: filtro
+    if: needs.filtro.outputs.mudou == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm --filter @cathedrall/admin lint
+
+      - name: Typecheck
+        run: pnpm --filter @cathedrall/admin typecheck
+
+      - name: Build
+        run: pnpm --filter @cathedrall/admin build
