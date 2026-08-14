@@ -1,0 +1,11 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "CathedrAll": "Host=localhost;Port=5432;Database=cathedrall;Username=cathedrall;Password="
+  }
+}
