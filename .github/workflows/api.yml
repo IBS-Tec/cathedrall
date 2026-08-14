@@ -33,6 +33,9 @@ jobs:
     needs: filtro
     if: needs.filtro.outputs.mudou == 'true'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
 
@@ -41,10 +44,10 @@ jobs:
           global-json-file: apps/api/global.json
 
       - name: Restaurar
-        run: dotnet restore apps/api/CathedrAll.slnx
+        run: dotnet restore CathedrAll.slnx
 
       - name: Compilar
-        run: dotnet build apps/api/CathedrAll.slnx --configuration Release --no-restore
+        run: dotnet build CathedrAll.slnx --configuration Release --no-restore
 
       - name: Testar
-        run: dotnet test apps/api/CathedrAll.slnx --configuration Release --no-build
+        run: dotnet test CathedrAll.slnx --configuration Release --no-build
