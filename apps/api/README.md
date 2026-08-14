@@ -2,10 +2,10 @@
 
 .NET 10, ASP.NET Core, Minimal API. Domínio: `api.ibscristo.com.br`.
 
-> **Estado: casca vazia.** Existe o host e a configuração de build. Nenhum endpoint,
-> nenhum módulo, nenhum acesso a banco. A API está sendo reconstruída do zero, em passos
-> pequenos. Este README descreve só o que já existe — se algo não estiver aqui, não foi
-> construído ainda.
+> **Estado: quase vazia.** Existe o host, a configuração de build e o `/health`. Nenhum
+> módulo, nenhum acesso a banco, nenhuma autenticação. A API está sendo reconstruída do
+> zero, em passos pequenos. Este README descreve só o que já existe — se algo não estiver
+> aqui, não foi construído ainda.
 
 ## Comandos
 
@@ -16,6 +16,17 @@ dotnet run --project src/Bootstrapper/CathedrAll.Api
 ```
 
 Ainda não há `dotnet test`: o projeto de testes não foi criado.
+
+## Endpoints
+
+| Rota | Auth | Descrição |
+| --- | --- | --- |
+| `GET /health` | anônimo | `200 Healthy` ou `503 Unhealthy`, em texto puro |
+
+`/health` é anônimo de propósito — o monitoramento externo não tem credencial. Por isso
+ele **não** expõe detalhes: um health check tagarela conta a um desconhecido quais
+dependências você tem e como elas falham. Se um dia precisarmos de diagnóstico detalhado,
+ele vai numa rota separada e autenticada, não nesta.
 
 ## Estrutura
 
