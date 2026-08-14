@@ -3,15 +3,16 @@
 O kernel compartilhado do [ADR-0012](../../../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md).
 Guarda os blocos de construção que os módulos usam e **não conhece módulo nenhum**.
 
-> **Estado: só o `Result`.** Existe `CathedrAll.Kernel.Domain` com `Result`, `Error` e
-> `ErrorType`. Não existe mediator, não existem behaviors, não existem `Entity` nem
-> `AggregateRoot`. Este README descreve só o que já está escrito.
+> **Estado: o `Result` e os blocos de DDD.** `CathedrAll.Kernel.Domain` tem `Result`,
+> `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent`, `IAuditable` e
+> `ISoftDeletable`. Não existe mediator, não existem behaviors, não existe interceptor de
+> auditoria. Este README descreve só o que já está escrito.
 
 ## Os dois projetos
 
 | Projeto | Guarda | Referencia |
 | --- | --- | --- |
-| `CathedrAll.Kernel.Domain` | `Result`, `Error`, `ErrorType`, e adiante os blocos de DDD | nada |
+| `CathedrAll.Kernel.Domain` | `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` | nada |
 | `CathedrAll.Kernel.Application` | mediator, behaviors, `IUnitOfWork` | `Kernel.Domain` |
 
 O ADR-0012 esboçou um `CathedrAll.Kernel` único. São dois porque a seta importa: a camada
@@ -28,8 +29,9 @@ infraestrutura disfarçado, e o lugar dele é `Kernel.Application`.
 
 ## A regra de corte: `Result` ou exceção
 
-Esta é a única coisa deste README que precisa estar na cabeça de quem escreve um handler.
-A pergunta é **quem errou:**
+Esta é a única coisa deste README que precisa estar na cabeça de quem escreve um
+**handler** — quem escreve um **agregado** tem a sua lista mais abaixo. A pergunta é
+**quem errou:**
 
 | Quem errou | Ferramenta | Exemplo |
 | --- | --- | --- |
@@ -180,6 +182,179 @@ deveria subir.**
 
 Nenhum dos dois existe ainda.
 
+## Entidade, agregado e evento
+
+`Entity<TId>` dá identidade e igualdade; `AggregateRoot<TId>` acrescenta eventos de
+domínio. Só raiz de agregado é carregada e salva por repositório — o resto do grafo entra
+e sai junto com ela.
+
+```csharp
+public sealed class Pessoa : AggregateRoot<Guid>
+{
+    private Pessoa(Guid id, NomeCompleto nome)
+        : base(id) => Nome = nome;
+
+    public NomeCompleto Nome { get; private set; }
+
+    public static Pessoa Cadastrar(NomeCompleto nome)
+    {
+        Pessoa pessoa = new(Guid.CreateVersion7(), nome);
+        pessoa.AddDomainEvent(new PessoaCadastrada(pessoa.Id));
+        return pessoa;
+    }
+}
+```
+
+Três regras saem daí, e são as únicas que precisam estar na cabeça de quem escreve um
+agregado.
+
+### 1. O `Id` nasce no construtor, nunca no banco
+
+`Guid.CreateVersion7()` gera antes de tocar o Postgres. `Id` é `{ get; }` — não existe
+setter, nem privado.
+
+Três coisas dependem disso:
+
+- **`GetHashCode` fica estável.** Objeto cujo hash muda depois de entrar num `HashSet`
+  fica inalcançável dentro dele — some da coleção onde está.
+- **O agregado está completo antes de existir no banco**, então o evento já pode carregar
+  o `Id` da coisa que descreve.
+- **Versão 7 é ordenável por tempo** e não fragmenta o índice como a versão 4.
+
+**Se alguém deixar o banco gerar o `Id`, a igualdade desaba:** toda entidade nova fica com
+`default`, e `Equals` passa a dizer que todas são a mesma entidade.
+
+### 2. Duas entidades são iguais quando têm o mesmo `Id` e o mesmo tipo
+
+`Equals` e `==` fazem a mesma coisa, de propósito. Ter que lembrar qual dos dois compara
+identidade seria convenção, e convenção é o que este kernel gasta projeto para evitar.
+
+Os dois são `sealed`: igualdade de entidade é decisão do kernel, não de quem escreve o
+módulo. Ninguém compara `Pessoa` por CPF ou por e-mail.
+
+A comparação exige **tipo exato**, não `is`. Com `is`, base e derivada teriam igualdade
+assimétrica — `a.Equals(b)` verdadeiro e `b.Equals(a)` falso — o que viola o contrato de
+`Equals` e corrompe qualquer `Dictionary`.
+
+### 3. Evento se levanta de dentro do agregado
+
+`AddDomainEvent` é `protected`. Não dá para um handler fazer
+`pessoa.AddDomainEvent(new PessoaDesligada(...))` sem passar por `pessoa.Desligar()`.
+
+Sem isso, o evento diz que a pessoa foi desligada e o estado do agregado diz que não — o
+agregado deixa de ser a fonte da verdade sobre o que aconteceu com ele. É o caminho mais
+curto para quem está com pressa, e por isso precisa estar fechado.
+
+### `PopDomainEvents` pega e limpa numa operação só
+
+O padrão que todo tutorial mostra é ler `DomainEvents`, despachar, e depois chamar
+`Clear()`. Nesse desenho, se um handler provocar um evento novo no mesmo agregado
+**durante** o despacho, o `Clear()` apaga um evento que nunca foi despachado. Pegar e
+limpar na mesma operação fecha a janela.
+
+Daí o nome ser `Pop` e não `Clear`: quem lê `ClearDomainEvents()` assume `void` e joga os
+eventos fora.
+
+### Evento de domínio: `=` e não `=>`
+
+```csharp
+public Guid Id { get; } = Guid.CreateVersion7();   // inicializa uma vez
+public Guid Id => Guid.CreateVersion7();           // Guid novo a cada leitura
+```
+
+A segunda forma é corpo de expressão: executa a cada leitura. Um outbox que grava o `Id` e
+depois compara para deduplicar nunca bate. **Herde de `DomainEvent`** e a escolha não
+chega a aparecer.
+
+`IDomainEvent` não tem `EventType`. Quando o outbox existir, o nome persistido precisa ser
+um literal que o autor do evento escolhe: nome derivado de reflexão quebra ao renomear a
+classe ou ao subir a versão do assembly.
+
+### Não existem `IEntity<TId>` nem `IAggregateRoot<TId>`
+
+As interfaces do kernel são não-genéricas, e cada uma tem um consumidor nomeado:
+
+| Interface | Quem consome |
+| --- | --- |
+| `IAuditable` | o interceptor de auditoria varrendo o `ChangeTracker` |
+| `IAggregateRoot` | o dispatcher de eventos varrendo o `ChangeTracker` |
+
+As versões genéricas existiram por um tempo e não tinham consumidor: ninguém escreve
+`IEntity<Guid> p` quando pode escrever `Pessoa`. Cobravam covariância (`out TId`, exigida
+pela `S3246`) para não servir a ninguém. Se um dia um repositório genérico precisar de
+restrição, ela funciona igual escrita sobre a classe: `where T : AggregateRoot<TId>`.
+
+## Auditoria e exclusão lógica
+
+`IAuditable` está em toda `Entity`. `ISoftDeletable` é opt-in, agregado por agregado.
+
+A diferença não é estilo. Exclusão lógica implica *global query filter* no EF, e filtro em
+toda tabela significa passar tardes desligando aviso de navegação obrigatória para
+entidade filtrada. Fora que nem tudo merece: linha de escala cancelada some, não vira
+lápide. Opt-in também obriga a pergunta a ser respondida agregado por agregado, que é o
+que uma revisão de LGPD quer ver documentado.
+
+`ISoftDeletable` não tem `bool IsDeleted`: `DeletedAt is not null` já responde e ainda diz
+**quando**. Dois campos para a mesma verdade é uma chance de eles discordarem.
+
+### O que cada nulo significa
+
+| Campo | Nulo quer dizer |
+| --- | --- |
+| `CreatedAt` | nunca é nulo — o interceptor preenche no insert |
+| `CreatedBy` | ação do sistema: migration, seed, job agendado, importação |
+| `LastModifiedAt` / `LastModifiedBy` | nunca foi alterado |
+
+Os carimbos são `DateTimeOffset` porque o Npgsql **rejeita em tempo de execução**
+`DateTime` com `Kind` diferente de `Utc`. `DateTime.Now` compila, passa na revisão e
+estoura no `SaveChanges` da primeira máquina configurada em `America/Sao_Paulo`.
+
+**`CreatedBy` é `Guid?`, não `string?`.** Guardando a claim `sub` de um IdP, basta alguém
+reconfigurar o provedor para emitir e-mail e você espalhou dado pessoal identificável por
+toda tabela do sistema — inclusive as que a revisão de LGPD classificou como impessoais.
+Ninguém revisa `CreatedBy` procurando PII. Se o `sub` do IdP não for GUID, quem guarda o
+`sub` é a tabela de usuários; a chave continua `Guid`.
+
+### Estas colunas não são o audit log
+
+Elas guardam quem mexeu **por último**. Se três pessoas editarem o telefone de um membro,
+sobrou o nome da terceira e os dois valores anteriores sumiram. A invariante 6 do
+`CLAUDE.md` pede outra coisa: tabela append-only com quem mudou o quê, quando, de qual
+valor para qual.
+
+As duas convivem, e nenhuma substitui a outra:
+
+| | Colunas | Tabela |
+| --- | --- | --- |
+| Responde | qual o estado atual da linha | como a linha chegou aqui |
+| Cardinalidade | 1 por entidade | N por entidade, cresce para sempre |
+| Retenção | vida da entidade | política própria, mais curta |
+| Custo de leitura | zero, já está na linha | agregação sobre a maior tabela do banco |
+
+O que impede a tabela de substituir as colunas é a retenção: no dia em que o expurgo
+apagar o INSERT de um membro cadastrado em 2019, `CreatedAt` deixa de ser conhecível.
+
+E `CreatedAt` não é "membro desde". Data de filiação é dado de domínio, pertence ao
+vínculo, e sobrevive a recadastro e a troca de sistema. Não deixe o carimbo técnico virar
+regra de negócio.
+
+A tabela precisa do EF Core, então **não cabe aqui** — o `.csproj` vazio é a regra. Ela
+mora em `Kernel.Application`/infra e merece ADR próprio, com duas coisas para resolver:
+
+- **`ExecuteUpdate` e `ExecuteDelete` não passam pelo `SaveChanges`.** Nem pelo change
+  tracker. Auditoria por interceptor é auditoria **da aplicação**, não do banco; a
+  diferença entre "auditamos tudo" e "auditamos o que passa pelo EF" é o tipo de promessa
+  que se descobre falsa durante um incidente. À prova de desenvolvedor é trigger no
+  Postgres.
+- **Exclusão lógica não é o direito de eliminação da LGPD.** `DeletedAt = agora` deixa o
+  dado exatamente onde estava. Pedido de titular exige remoção real ou anonimização.
+
+E o audit log vai conter valores antigos de campos de `Pessoa`: ele é tão sensível quanto
+a tabela original e precisa da mesma proteção e da mesma retenção. Audit log irrestrito é
+vazamento com carimbo de conformidade.
+
+Nenhum interceptor existe ainda.
+
 ## O que não está aqui, e por quê
 
 **Sem `Bind`, `Map`, `Tap` ou `Ensure`.** É o próximo passo natural do padrão e é uma
@@ -193,6 +368,11 @@ vez, a saída é uma coleção no `Result` — **não** uma subclasse de `Error`
 `record` traz `EqualityContract` junto e estraga a igualdade estrutural de formas que
 custam uma tarde para entender. `Error` é `sealed`; mantenha.
 
+**Sem base para objeto de valor.** `record` já dá igualdade estrutural pronta, e as
+implementações de `ValueObject` que circulam comparam componentes por reflexão: lentas e
+ilegíveis para resolver o que a linguagem resolve sozinha. Objeto de valor aqui é
+`sealed record`, ou `readonly record struct` quando for pequeno.
+
 **Uma conta que vai chegar.** O `ValidationBehavior` do pipeline será genérico em
 `TResponse`, vai precisar abortar devolvendo uma falha, e não sabe que `TResponse` é um
 `Result<T>` nem como construir um. As saídas são todas feias (reflexão sobre `Result<>`,
@@ -201,8 +381,8 @@ registrado, porque a escolha influencia o desenho do mediator.
 
 ## Armadilhas de build
 
-Duas formas neste código foram impostas pelos analisadores, não escolhidas. Valem
-registro porque **todo exemplo de `Result` que você achar na internet falha aqui**:
+Três formas neste código foram impostas pelos analisadores, não escolhidas. Valem
+registro porque **todo exemplo que você achar na internet falha aqui**:
 
 - **`Result` e `Result<T>` em arquivos separados** (`Result.cs`, `ResultOfT.cs`), por
   `SA1402` — "File may only contain a single type", que é erro com
@@ -211,6 +391,15 @@ registro porque **todo exemplo de `Result` que você achar na internet falha aqu
   `_value`.** `IDE0032` proíbe campo privado atribuído só no construtor
   (`dotnet_style_prefer_auto_properties`), e renomear o campo não resolve — a regra mira o
   campo, não o par com a propriedade.
+- **O `#pragma warning disable S3875` no `operator ==` do `Entity`.** A `S3875` proíbe
+  sobrecarga de `==` em tipo de referência. A saída documentada — implementar
+  `IEquatable<T>` — cai na `S4035`, que exige classe `sealed`, e `Entity` é abstrata. As
+  duas regras se cancelam: não existe combinação que satisfaça as duas. Sem o operador,
+  `a == b` compararia referência enquanto `a.Equals(b)` compara identidade, e o erro
+  passaria despercebido porque dentro de um mesmo `DbContext` o change tracker devolve a
+  mesma instância para a mesma chave — `==` **acerta por acidente** no caso comum e só
+  falha entre contextos diferentes, que é o que teste unitário não pega. Só o `==` dispara
+  a regra; o `!=` passa sozinho.
 
 ## Testes
 
@@ -220,3 +409,8 @@ A guarda "sucesso carregando erro" do construtor do `Result` está sem teste de 
 nenhuma factory pública alcança ela, porque todas passam `Error.None` fixo. Alcançá-la por
 reflexão amarraria o teste ao construtor privado sem provar nada sobre o contrato. A
 guarda fica como defesa para código futuro dentro do kernel; o teste, não.
+
+O teste que carrega peso em `Entity` é o do `HashSet`: duas instâncias com o mesmo `Id`,
+`Count == 1`. Ele representa a classe inteira de bug que a igualdade por identidade existe
+para evitar — `Contains`, `Distinct`, `Except` e `GroupBy` erram todos pelo mesmo motivo, e
+nenhum deles reclama.
