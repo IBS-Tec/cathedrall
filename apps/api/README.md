@@ -2,10 +2,12 @@
 
 .NET 10, ASP.NET Core, Minimal API. Domínio: `api.ibscristo.com.br`.
 
-> **Estado: quase vazia.** Existe o host, a configuração de build e o `/health`. Nenhum
-> módulo, nenhum acesso a banco, nenhuma autenticação. A API está sendo reconstruída do
-> zero, em passos pequenos. Este README descreve só o que já existe — se algo não estiver
-> aqui, não foi construído ainda.
+> **Estado: host e kernel.** Existem o host com `/health`, a configuração de build e o
+> kernel de domínio — `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`,
+> `DomainEvent`, descritos em [`src/Kernel/README.md`](src/Kernel/README.md). Nenhum
+> módulo, nenhum acesso a banco, nenhuma autenticação, nenhum mediator. A API está sendo
+> reconstruída do zero, em passos pequenos. Este README descreve só o que já existe — se
+> algo não estiver aqui, não foi construído ainda.
 
 ## Comandos
 
@@ -61,6 +63,13 @@ separação de bancos do [ADR-0006](../../docs/adr/0006-postgresql.md) é garant
 `/health/ready` responde `503`, que é a resposta correta: sem banco a API não está pronta.
 Em desenvolvimento vai no `appsettings.Development.json`, que é ignorado pelo git; em
 produção, na variável `ConnectionStrings__CathedrAll`. Nunca versionada.
+
+Para começar, copie o exemplo e preencha a senha — a mesma `APP_DB_PASSWORD` do
+`infra/compose/.env`:
+
+```bash
+cp src/Bootstrapper/CathedrAll.Api/appsettings.Development.json{.example,}
+```
 
 ## Estrutura
 

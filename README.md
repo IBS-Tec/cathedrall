@@ -95,3 +95,22 @@ grandeza mais lento e o hot reload deixa de funcionar direito.
   Inglês para termos de infraestrutura e framework. Não misture dentro da mesma camada.
 - Um PR por assunto. CI verde é obrigatório para merge.
 - Decisão arquitetural relevante vira ADR em `docs/adr/` antes de virar código.
+
+## Licença
+
+Copyright (C) 2026 Igreja Bíblica Semear — Cristo Redentor
+
+Este programa é software livre: você pode redistribuí-lo e/ou modificá-lo sob os termos da
+**GNU Affero General Public License**, versão 3, publicada pela Free Software Foundation.
+O texto completo está em [`LICENSE`](LICENSE).
+
+Ele é distribuído na esperança de ser útil, mas **sem nenhuma garantia** — nem mesmo a
+garantia implícita de comercialização ou adequação a um fim específico.
+
+A escolha da AGPL é deliberada: qualquer igreja pode usar, adaptar e cobrar por serviço em
+cima disto. O que não pode é rodar uma versão modificada como serviço na internet sem
+oferecer o código dessa versão a quem a usa — é o artigo 13 da licença, e é o que impede
+que o trabalho de voluntários vire produto fechado de outra pessoa.
+
+A obrigação vale para nós também: `app.ibscristo.com.br` roda este código, e é por isso que
+este repositório é público.
