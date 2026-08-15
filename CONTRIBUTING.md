@@ -111,6 +111,16 @@ formatação.
 canal de transmissão de conhecimento que este projeto tem, e o maior risco daqui não é bug
 em produção — é o mantenedor ficar indisponível e ninguém entender o sistema.
 
+## Licença da sua contribuição
+
+Ao abrir um PR, você concorda que sua contribuição seja licenciada sob a
+[AGPL-3.0](LICENSE), a mesma licença do projeto.
+
+Não é burocracia: trocar a licença depois exige concordância de **todos** os detentores de
+direito autoral, e cada pessoa que já contribuiu é um deles. A convenção resolveria na
+prática — contribuir para um repositório licenciado é aceitar a licença dele — mas
+convenção não é texto, e quem precisar disso daqui a três anos vai precisar achar escrito.
+
 ## Discordando de uma decisão
 
 Se algo aqui parece errado, provavelmente há um ADR explicando o trade-off que foi aceito
