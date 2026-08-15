@@ -3,17 +3,19 @@
 O kernel compartilhado do [ADR-0012](../../../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md).
 Guarda os blocos de construção que os módulos usam e **não conhece módulo nenhum**.
 
-> **Estado: o `Result` e os blocos de DDD.** `CathedrAll.Kernel.Domain` tem `Result`,
-> `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent`, `IAuditable` e
-> `ISoftDeletable`. Não existe mediator, não existem behaviors, não existe interceptor de
-> auditoria. Este README descreve só o que já está escrito.
+> **Estado: o `Result`, os blocos de DDD e o mediator.** `CathedrAll.Kernel.Domain` tem
+> `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent`, `IAuditable` e
+> `ISoftDeletable`. `CathedrAll.Kernel.Application` tem o mediator: `ISender`, `IRequest`,
+> `IRequestHandler`, `IPipelineBehavior` e o registro de DI. **Nenhum behavior está
+> escrito**, não existe `IUnitOfWork`, não existe interceptor de auditoria. Este README
+> descreve só o que já está escrito.
 
 ## Os dois projetos
 
 | Projeto | Guarda | Referencia |
 | --- | --- | --- |
 | `CathedrAll.Kernel.Domain` | `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` | nada |
-| `CathedrAll.Kernel.Application` | mediator, behaviors, `IUnitOfWork` | `Kernel.Domain` |
+| `CathedrAll.Kernel.Application` | o mediator e o contrato dos behaviors | `Kernel.Domain` |
 
 O ADR-0012 esboçou um `CathedrAll.Kernel` único. São dois porque a seta importa: a camada
 `Domain` de um módulo referencia apenas `Kernel.Domain`, e aí **a entidade não alcança o
@@ -25,7 +27,10 @@ validador. É fácil de verificar em revisão: o `.csproj` continua vazio. No di
 precisar de um pacote, quase certamente o que entrou ali era código de aplicação ou de
 infraestrutura disfarçado, e o lugar dele é `Kernel.Application`.
 
-`CathedrAll.Kernel.Application` ainda não existe.
+`Kernel.Application` tem exatamente um `PackageReference`:
+`Microsoft.Extensions.DependencyInjection.Abstractions`. É o preço de o kernel saber se
+registrar sozinho. Repare que é o **Abstractions**, não o container concreto: quem escolhe
+a implementação é o host, e o kernel só descreve o registro.
 
 ## A regra de corte: `Result` ou exceção
 
@@ -355,6 +360,141 @@ vazamento com carimbo de conformidade.
 
 Nenhum interceptor existe ainda.
 
+## O mediator
+
+Sete arquivos, 84 linhas, uma classe. O ADR-0012 pôs um teto de ~200 linhas e disse o que
+fazer se estourar: **voltar a chamar o handler direto do endpoint.**
+
+| Peça | O que é |
+| --- | --- |
+| `IRequest<TResponse>` | marcador. `ICommand<T>` e `IQuery<T>` herdam dele |
+| `IRequestHandler<TRequest, TResponse>` | quem faz o trabalho. Um por requisição |
+| `IPipelineBehavior<TRequest, TResponse>` | o que envolve o handler. Zero ou muitos |
+| `RequestHandlerDelegate<TResponse>` | o `next` que o behavior chama |
+| `ISender` | o que o endpoint injeta |
+| `Sender` | a implementação, `internal` — ninguém fora do kernel a nomeia |
+
+Ponta a ponta. O comando e o handler, dentro do módulo:
+
+```csharp
+public sealed record CadastrarPessoa(string Nome) : ICommand<Result<Guid>>;
+
+internal sealed class CadastrarPessoaHandler(IPessoaRepository repositorio)
+    : IRequestHandler<CadastrarPessoa, Result<Guid>>
+{
+    public async Task<Result<Guid>> HandleAsync(
+        CadastrarPessoa request,
+        CancellationToken cancellationToken)
+    {
+        Result<NomeCompleto> nome = NomeCompleto.Criar(request.Nome);
+
+        if (nome.IsFailure)
+        {
+            return nome.Error;
+        }
+
+        Pessoa pessoa = Pessoa.Cadastrar(nome.Value);
+        await repositorio.AdicionarAsync(pessoa, cancellationToken);
+
+        return pessoa.Id;
+    }
+}
+```
+
+O registro, no host:
+
+```csharp
+builder.Services.AddKernelApplication();
+builder.Services.AddScoped<
+    IRequestHandler<CadastrarPessoa, Result<Guid>>,
+    CadastrarPessoaHandler>();
+```
+
+E o endpoint:
+
+```csharp
+app.MapPost("/pessoas", async (CadastrarPessoa comando, ISender sender, CancellationToken ct) =>
+{
+    Result<Guid> resultado = await sender.SendAsync<CadastrarPessoa, Result<Guid>>(comando, ct);
+
+    return resultado.IsSuccess ? Results.Ok(resultado.Value) : resultado.Error.ParaHttp();
+});
+```
+
+O `ParaHttp()` do exemplo é o mapeador `Result` → HTTP da seção "Onde os `try/catch`
+desaparecem". Ele não existe ainda, e o nome aqui é ilustrativo — quem escrevê-lo escolhe.
+
+### `SendAsync` pede os dois tipos, e isso é de propósito
+
+C# não infere argumento de tipo a partir de restrição. `TResponse` só aparece em
+`where TRequest : IRequest<TResponse>`, então `sender.SendAsync(comando, ct)` **não
+compila** — os dois vão escritos, sempre.
+
+O MediatR não pede porque resolve o handler por reflexão: `MakeGenericType`, cache de
+delegate, dicionário de tipos. A mitigação 1 do ADR-0012 pede "sem reflexão além do
+estritamente necessário", e aqui ela não é necessária — **`Sender` não tem uma linha de
+reflexão**. O preço é repetir o tipo de retorno na chamada, uma vez por endpoint.
+
+Daí sai uma armadilha: `TRequest` é inferido do tipo **estático** do argumento. Se alguém
+guardar a requisição numa variável declarada como `IRequest<Result<Guid>>`, o `TRequest`
+liga na interface, o container procura `IRequestHandler<IRequest<Result<Guid>>, ...>` e não
+acha nada. Falha em tempo de execução, não de compilação. Passe sempre o tipo concreto.
+
+### Ordem dos behaviors: quem registra primeiro fica por fora
+
+```
+A antes → B antes → C antes → handler → C depois → B depois → A depois
+```
+
+Registrar é no host, um `AddScoped(typeof(IPipelineBehavior<,>), typeof(...))` por
+behavior, e a ordem das linhas é a ordem de execução. Fica no `Program.cs` **de propósito**:
+dentro do `AddKernelApplication` seria decisão de composição escondida numa biblioteca.
+
+Isso importa mais do que parece. Validação precisa estar por fora de transação — senão você
+abre transação para requisição que vai ser rejeitada. Transação precisa estar por fora de
+auditoria. **Ordem errada não quebra teste de handler nenhum**, e é por isso que a ordem
+tem teste próprio no kernel.
+
+Dentro do `Sender`, tudo isso é um `.Reverse()` e uma cópia de variável dentro do `foreach`.
+Duas linhas que não parecem nada. Veja "Testes".
+
+### `ICommand` e `IQuery` existem para o behavior filtrar
+
+O `Sender` não distingue os dois — ele aceita `IRequest`. Elas existem para um behavior
+poder restringir a si mesmo:
+
+```csharp
+internal sealed class TransactionBehavior<TRequest, TResponse>
+    : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : ICommand<TResponse>
+```
+
+Registrado como genérico aberto, o container **pula esse behavior em silêncio** quando a
+requisição é uma query. Sem `if (request is ICommand)` dentro do behavior, sem registro
+duplicado. Isso funciona a partir do .NET 7; antes, o container lançava em vez de pular.
+
+É o mesmo teste que matou `IEntity<TId>` mais acima: interface do kernel precisa de
+consumidor nomeado. O destas duas é o `TransactionBehavior` — e o mecanismo já tem teste,
+antes de o behavior existir.
+
+### `ISender` é `Scoped`, e não é detalhe
+
+`Sender` recebe `IServiceProvider` e resolve o handler dentro do `SendAsync`. **Qual**
+provider ele recebe depende do lifetime dele próprio:
+
+| Lifetime | Provider injetado | Consequência |
+| --- | --- | --- |
+| `Singleton` | a raiz | handler `Scoped` não resolve; sem validação, vira *captive dependency* |
+| `Transient` | o do escopo | funciona, e aloca à toa: o objeto não tem estado |
+| `Scoped` | o do escopo | handler, `DbContext` e o futuro `IUnitOfWork` caem todos no mesmo escopo |
+
+É isso que torna seguro o `Sender` ser um service locator: ele não escolhe escopo nenhum,
+ele herda o escopo de quem o resolveu.
+
+O registro usa `TryAddScoped`, não `AddScoped`: chamar `AddKernelApplication()` duas vezes
+não duplica nada. Como `GetRequiredService` fica com o último, duplicar não quebraria
+hoje — mas "não quebra hoje" é como dívida entra.
+
 ## O que não está aqui, e por quê
 
 **Sem `Bind`, `Map`, `Tap` ou `Ensure`.** É o próximo passo natural do padrão e é uma
@@ -376,12 +516,14 @@ ilegíveis para resolver o que a linguagem resolve sozinha. Objeto de valor aqui
 **Uma conta que vai chegar.** O `ValidationBehavior` do pipeline será genérico em
 `TResponse`, vai precisar abortar devolvendo uma falha, e não sabe que `TResponse` é um
 `Result<T>` nem como construir um. As saídas são todas feias (reflexão sobre `Result<>`,
-constranger o pipeline, ou lançar e capturar no handler global). Não está resolvido — só
-registrado, porque a escolha influencia o desenho do mediator.
+constranger o pipeline, ou lançar e capturar no handler global). Continua não resolvido: o
+mediator foi escrito sem decidir isso, o que só foi possível porque o pipeline é genérico
+em `TResponse` e não precisa saber o que ele é. A conta chega inteira no primeiro behavior
+que precisar abortar.
 
 ## Armadilhas de build
 
-Três formas neste código foram impostas pelos analisadores, não escolhidas. Valem
+Quatro formas neste código foram impostas pelos analisadores, não escolhidas. Valem
 registro porque **todo exemplo que você achar na internet falha aqui**:
 
 - **`Result` e `Result<T>` em arquivos separados** (`Result.cs`, `ResultOfT.cs`), por
@@ -400,17 +542,60 @@ registro porque **todo exemplo que você achar na internet falha aqui**:
   mesma instância para a mesma chave — `==` **acerta por acidente** no caso comum e só
   falha entre contextos diferentes, que é o que teste unitário não pega. Só o `==` dispara
   a regra; o `!=` passa sozinho.
+- **O `#pragma warning disable S2326` no `IRequest<TResponse>`.** A `S2326` proíbe
+  parâmetro de tipo não usado, e `IRequest<TResponse>` não usa `TResponse` em membro
+  nenhum — é interface marcadora, e o `TResponse` existe para o compilador amarrar
+  requisição e resposta na assinatura do handler. Satisfazer a regra exigiria inventar um
+  membro que ninguém implementa.
 
 ## Testes
 
-`tests/CathedrAll.Kernel.Domain.Tests/` — unitários puros, sem host e sem banco.
+| Projeto | Cobre |
+| --- | --- |
+| `tests/CathedrAll.Kernel.Domain.Tests/` | `Result`, `Error`, `Entity`, `AggregateRoot`, `DomainEvent` |
+| `tests/CathedrAll.Kernel.Application.Tests/` | despacho, cadeia de behaviors, registro de DI |
+
+Unitários puros nos dois: sem host, sem banco. Os dublês são classes escritas à mão, e
+**não há biblioteca de mock no `Directory.Packages.props`** — nem deve haver. Um
+`HandlerFalso` de dez linhas é mais legível para quem chega do que a API de setup de
+qualquer framework de mock, e este projeto tem rotatividade alta.
+
+Uma regra que parece detalhe: o rastro que os behaviors escrevem **nunca pode ser
+`static`**. xUnit roda classes de teste em paralelo, e lista estática compartilhada produz
+teste intermitente — o pior tipo, porque ensina o time a re-rodar o CI até passar. O rastro
+entra pelo container e sai pelo construtor do dublê.
+
+### O teste que carrega peso em `Kernel.Domain`
+
+É o do `HashSet` em `Entity`: duas instâncias com o mesmo `Id`, `Count == 1`. Ele
+representa a classe inteira de bug que a igualdade por identidade existe para evitar —
+`Contains`, `Distinct`, `Except` e `GroupBy` erram todos pelo mesmo motivo, e nenhum deles
+reclama.
 
 A guarda "sucesso carregando erro" do construtor do `Result` está sem teste de propósito:
 nenhuma factory pública alcança ela, porque todas passam `Error.None` fixo. Alcançá-la por
 reflexão amarraria o teste ao construtor privado sem provar nada sobre o contrato. A
 guarda fica como defesa para código futuro dentro do kernel; o teste, não.
 
-O teste que carrega peso em `Entity` é o do `HashSet`: duas instâncias com o mesmo `Id`,
-`Count == 1`. Ele representa a classe inteira de bug que a igualdade por identidade existe
-para evitar — `Contains`, `Distinct`, `Except` e `GroupBy` erram todos pelo mesmo motivo, e
-nenhum deles reclama.
+### O teste que carrega peso em `Kernel.Application`
+
+Três behaviors registrados e o rastro inteiro conferido:
+
+```
+["A antes", "B antes", "C antes", "handler", "C depois", "B depois", "A depois"]
+```
+
+Com dois behaviors ele passaria por sorte. Com três, as duas linhas invisíveis do `Sender`
+ficam travadas — e vale saber como cada uma falha, porque as falhas não se parecem:
+
+- **Tirar o `.Reverse()`** inverte a ordem da cadeia. Teste vermelho, diff legível.
+- **Tirar a cópia da variável dentro do `foreach`** (`RequestHandlerDelegate<TResponse>
+  interno = next;`) causa **stack overflow**. Sem ela, todas as closures capturam a mesma
+  *variável* `next` em vez do valor dela naquela volta, e cada behavior acaba chamando a si
+  mesmo. Stack overflow não é exceção capturável em .NET: o processo de teste morre
+  inteiro, e o resumo sai com o projeto reprovado e **`falhou: 0`**. Se o CI mostrar isso,
+  procure closure capturando variável de loop — não assert quebrado.
+
+O `ValidateScopes = true` na construção do provider é o que transforma "registrei o
+`ISender` com o lifetime errado" em teste vermelho, em vez de captive dependency
+descoberta sob carga em produção. Não tire.
