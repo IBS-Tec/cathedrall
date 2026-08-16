@@ -3,14 +3,9 @@
 Monorepo da Igreja Bíblica Semear — Cristo Redentor. Dois produtos: o site institucional
 (`ibscristo.com.br`) e o sistema de gestão CathedrAll (`app.ibscristo.com.br`).
 
-**Estado atual: fundação.** O site (Astro) e o admin (React) sobem localmente. A API
-(.NET 10) tem host, `/health` e o kernel de domínio — `Result`, `Error`, `Entity`,
-`AggregateRoot`, `DomainEvent`. O Compose de `infra/` levanta Postgres e Directus com
-bancos e usuários separados. Cada PR passa por CI de api, admin e site.
-
-**Ainda não existem:** módulo de negócio, acesso a banco pela API, autenticação, mediator,
-audit log, e nenhum ambiente publicado. Cada README descreve só o que já está escrito —
-comece por eles, não pelo código.
+**Ainda não existem:** módulo de negócio, acesso a banco pela API, autenticação, behavior
+de pipeline, audit log, e nenhum ambiente publicado. Cada README descreve só o que já está
+escrito — comece por eles, não pelo código.
 
 ## Leia antes de propor mudanças
 

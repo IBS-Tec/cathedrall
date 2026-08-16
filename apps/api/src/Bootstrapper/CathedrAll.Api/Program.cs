@@ -1,7 +1,11 @@
 using CathedrAll.Api;
+using CathedrAll.Kernel.Application;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddKernelApplication();
+builder.Services.AddLoggingBehavior();
 
 builder.Services.AddHealthChecks()
     .AddCheck<PostgresHealthCheck>(
