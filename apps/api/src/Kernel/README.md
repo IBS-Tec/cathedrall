@@ -3,19 +3,20 @@
 O kernel compartilhado do [ADR-0012](../../../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md).
 Guarda os blocos de construção que os módulos usam e **não conhece módulo nenhum**.
 
-> **Estado: o `Result`, os blocos de DDD e o mediator.** `CathedrAll.Kernel.Domain` tem
-> `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent`, `IAuditable` e
-> `ISoftDeletable`. `CathedrAll.Kernel.Application` tem o mediator: `ISender`, `IRequest`,
-> `IRequestHandler`, `IPipelineBehavior` e o registro de DI. **Nenhum behavior está
-> escrito**, não existe `IUnitOfWork`, não existe interceptor de auditoria. Este README
-> descreve só o que já está escrito.
+> **Estado: o `Result`, os blocos de DDD, o mediator e um behavior.**
+> `CathedrAll.Kernel.Domain` tem `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`,
+> `DomainEvent`, `IAuditable` e `ISoftDeletable`. `CathedrAll.Kernel.Application` tem o
+> mediator — `ISender`, `IRequest`, `IRequestHandler`, `IPipelineBehavior` —, o
+> `LoggingBehavior` e o registro de DI. **O único behavior escrito é o de log:** não existe
+> validação, nem transação, nem autorização, nem `IUnitOfWork`, nem interceptor de
+> auditoria. Este README descreve só o que já está escrito.
 
 ## Os dois projetos
 
 | Projeto | Guarda | Referencia |
 | --- | --- | --- |
 | `CathedrAll.Kernel.Domain` | `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` | nada |
-| `CathedrAll.Kernel.Application` | o mediator e o contrato dos behaviors | `Kernel.Domain` |
+| `CathedrAll.Kernel.Application` | o mediator, o contrato dos behaviors e o `LoggingBehavior` | `Kernel.Domain` |
 
 O ADR-0012 esboçou um `CathedrAll.Kernel` único. São dois porque a seta importa: a camada
 `Domain` de um módulo referencia apenas `Kernel.Domain`, e aí **a entidade não alcança o
@@ -27,10 +28,17 @@ validador. É fácil de verificar em revisão: o `.csproj` continua vazio. No di
 precisar de um pacote, quase certamente o que entrou ali era código de aplicação ou de
 infraestrutura disfarçado, e o lugar dele é `Kernel.Application`.
 
-`Kernel.Application` tem exatamente um `PackageReference`:
-`Microsoft.Extensions.DependencyInjection.Abstractions`. É o preço de o kernel saber se
-registrar sozinho. Repare que é o **Abstractions**, não o container concreto: quem escolhe
-a implementação é o host, e o kernel só descreve o registro.
+`Kernel.Application` tem dois `PackageReference`, e os dois terminam em `Abstractions`:
+`Microsoft.Extensions.DependencyInjection.Abstractions`, o preço de o kernel saber se
+registrar sozinho, e `Microsoft.Extensions.Logging.Abstractions`, o preço do
+`LoggingBehavior`. Repare que nenhum dos dois é a coisa concreta — nem o container, nem um
+provedor de log. Quem escolhe a implementação é o host; o kernel só descreve o registro e
+escreve na interface.
+
+**A regra que fica: aqui só entra `*.Abstractions`.** É o equivalente ao `.csproj` vazio do
+`Kernel.Domain`, e igualmente fácil de conferir em revisão. Um pacote concreto neste
+projeto arrasta para dentro do kernel uma escolha que é do host, e todo módulo passa a
+herdá-la sem ter sido consultado.
 
 ## A regra de corte: `Result` ou exceção
 
@@ -362,8 +370,10 @@ Nenhum interceptor existe ainda.
 
 ## O mediator
 
-Sete arquivos, 84 linhas, uma classe. O ADR-0012 pôs um teto de ~200 linhas e disse o que
-fazer se estourar: **voltar a chamar o handler direto do endpoint.**
+Sete arquivos, 92 linhas, uma classe. O ADR-0012 pôs um teto de ~200 linhas e disse o que
+fazer se estourar: **voltar a chamar o handler direto do endpoint.** O `LoggingBehavior`
+são outras 64 linhas — o teto vale para o encanamento, não para o que passa dentro dele,
+mas o número inteiro do projeto fica visível de propósito: 156.
 
 | Peça | O que é |
 | --- | --- |
@@ -405,10 +415,14 @@ O registro, no host:
 
 ```csharp
 builder.Services.AddKernelApplication();
+builder.Services.AddLoggingBehavior();
 builder.Services.AddScoped<
     IRequestHandler<CadastrarPessoa, Result<Guid>>,
     CadastrarPessoaHandler>();
 ```
+
+`AddKernelApplication()` registra só o `ISender`. Cada behavior tem a sua extensão e é
+pedido à parte — inclusive o de log, que é o único que existe. Ver "Ordem dos behaviors".
 
 E o endpoint:
 
@@ -446,14 +460,31 @@ acha nada. Falha em tempo de execução, não de compilação. Passe sempre o ti
 A antes → B antes → C antes → handler → C depois → B depois → A depois
 ```
 
-Registrar é no host, um `AddScoped(typeof(IPipelineBehavior<,>), typeof(...))` por
-behavior, e a ordem das linhas é a ordem de execução. Fica no `Program.cs` **de propósito**:
-dentro do `AddKernelApplication` seria decisão de composição escondida numa biblioteca.
+Registrar é no host, uma linha por behavior, e a ordem das linhas é a ordem de execução.
+Fica no `Program.cs` **de propósito**: dentro do `AddKernelApplication` seria decisão de
+composição escondida numa biblioteca — quem lê o `Program.cs` veria o mediator e não veria
+o pipeline.
 
-Isso importa mais do que parece. Validação precisa estar por fora de transação — senão você
-abre transação para requisição que vai ser rejeitada. Transação precisa estar por fora de
-auditoria. **Ordem errada não quebra teste de handler nenhum**, e é por isso que a ordem
-tem teste próprio no kernel.
+Cada behavior do kernel expõe a própria extensão (`AddLoggingBehavior()`); behavior de
+módulo se registra na mão, com `AddScoped(typeof(IPipelineBehavior<,>), typeof(...))`. As
+extensões do kernel usam `TryAddEnumerable`, então chamar duas vezes não duplica o anel —
+e, ao contrário do `TryAddScoped` do `ISender`, aqui duplicar **quebraria de verdade**: o
+behavior rodaria duas vezes por requisição.
+
+Isso importa mais do que parece:
+
+| Ordem | Anel | Existe? | Por que aqui |
+| --- | --- | --- | --- |
+| 1 | `LoggingBehavior` | **sim** | Por fora de tudo, para a duração medida ser a que o usuário esperou e para a rejeição dos anéis de dentro também virar linha de log |
+| 2 | autorização (RBAC com escopo) | não | Antes da validação: quem não pode nem ver o recurso não deve descobrir quais campos estão errados nele |
+| 3 | validação | não | Antes da transação, senão você abre transação para requisição que já ia ser rejeitada |
+| 4 | transação / `IUnitOfWork` | não | O mais interno, colado no handler, para segurar o menor trecho possível |
+
+A auditoria não aparece na tabela porque **não é anel**: ela pendura no `SaveChanges`, ou
+seja, dentro da transação. É isso que a frase "transação por fora de auditoria" quer dizer.
+
+**Ordem errada não quebra teste de handler nenhum**, e é por isso que a ordem tem teste
+próprio no kernel.
 
 Dentro do `Sender`, tudo isso é um `.Reverse()` e uma cópia de variável dentro do `foreach`.
 Duas linhas que não parecem nada. Veja "Testes".
@@ -495,6 +526,95 @@ O registro usa `TryAddScoped`, não `AddScoped`: chamar `AddKernelApplication()`
 não duplica nada. Como `GetRequiredService` fica com o último, duplicar não quebraria
 hoje — mas "não quebra hoje" é como dívida entra.
 
+## O `LoggingBehavior`
+
+O anel mais externo, e por enquanto o único. Uma linha por requisição, sempre — sucesso,
+falha de negócio e exceção:
+
+```
+info: CathedrAll.Kernel.Application.Pipeline[0]
+      Requisição CadastrarPessoa terminou com sucesso em 12,4 ms
+warn: CathedrAll.Kernel.Application.Pipeline[0]
+      Requisição CadastrarPessoa terminou com falha em 3,1 ms, erro Pessoa.EmailInvalido
+```
+
+| Desfecho | Nível | Campo extra |
+| --- | --- | --- |
+| `Result` bem-sucedido, ou resposta que não é `Result` | `Information` | — |
+| `Result` com `IsFailure` | `Warning` | `Codigo` |
+| Exceção | `Error` | — |
+
+Os níveis são a mesma regra de corte do começo deste README, dita de outro jeito: **falha
+de negócio é o usuário errando, e usuário errando não é incidente.** Se e-mail mal digitado
+saísse como `Error`, o alerta dispararia várias vezes por dia sem nada para fazer a
+respeito, e o time aprenderia a ignorar o canal — inclusive nas vezes em que ele estivesse
+certo.
+
+Repare na primeira linha da tabela: um handler que devolve `string` termina em "sucesso"
+mesmo tendo recusado o pedido, porque o behavior só sabe ler o que passa por `Result`. É
+mais um motivo para handler devolver `Result`.
+
+### O que ele nunca registra
+
+**A requisição não vai para o log.** Nem inteira, nem em pedaço: o que entra no template é
+`typeof(TRequest).Name`, e a instância nunca é passada ao logger.
+
+Isso não é economia de espaço, é a invariante 6 do `CLAUDE.md`. `CadastrarPessoa` é um
+`record`, e `ToString()` de `record` despeja todas as propriedades — CPF, e-mail, telefone,
+endereço. Bastaria alguém passar `request` em vez do nome do tipo para o cadastro inteiro da
+igreja começar a ser copiado para o agregador de logs, que tem outra retenção, outro
+controle de acesso e não aparece em nenhum mapa de dados pessoais. Vazamento assim não dá
+erro, não fica lento e não aparece em revisão de código — só aparece quando alguém procura.
+
+Pelo mesmo motivo, da falha vai o `Code` e **não** a `Description`. `Code` é contrato e não
+tem como carregar dado de ninguém; `Description` é texto para humano, que qualquer dia é
+reescrito para ficar mais útil e vira `"O e-mail joao@exemplo.com já está cadastrado"`.
+
+Os dois casos têm teste que falha se o dado vazar pela mensagem ou por qualquer campo
+estruturado.
+
+### Categoria fixa, e por que não `ILogger<T>`
+
+O behavior recebe `ILoggerFactory` e cria o logger com uma categoria literal:
+`CathedrAll.Kernel.Application.Pipeline`.
+
+Com o `ILogger<LoggingBehavior<TRequest, TResponse>>` que seria o caminho natural, a
+categoria sairia do **genérico fechado** — uma categoria diferente para cada tipo de
+requisição do sistema. Filtrar o anel no `appsettings.json` passaria a exigir uma entrada
+por comando, e ninguém manteria isso. Com a categoria fixa, é uma linha:
+
+```json
+"Logging": { "LogLevel": { "CathedrAll.Kernel.Application.Pipeline": "Warning" } }
+```
+
+Essa string tem teste. Errar uma letra nela não quebra build nem teste de comportamento —
+só faz o filtro parar de casar, em silêncio, e a descoberta acontece quando alguém precisar
+baixar o volume de log em produção.
+
+### `try/finally` sem `catch`
+
+A exceção sobe intacta: o behavior registra o **desfecho** e não toca no objeto. Quem loga
+stack trace é o `IExceptionHandler` global do host, que ainda não existe.
+
+O caminho que todo exemplo mostra — `catch`, logar, `throw` — registraria a mesma falha
+duas vezes com o mesmo peso, uma vez aqui e outra no handler global, e quem estivesse
+lendo o log contaria dois incidentes onde houve um. Os analisadores já sabem disso:
+`S2139` e `S6667` reprovam logar e relançar. `try/finally` resolve os dois de uma vez e
+ainda garante a linha de log no caminho de exceção.
+
+### O que ainda não está aqui
+
+- **Cancelamento cai como exceção.** Cliente que desiste no meio produz
+  `OperationCanceledException`, que hoje vira `Error` e "exceção". Deveria ser rotina, não
+  incidente. Fica assim de propósito até o handler global existir: os dois vão precisar
+  concordar sobre o que é cancelamento, e decidir agora é adivinhar sozinho.
+- **Sem *trace*, sem métrica.** Quando o OpenTelemetry entrar, entra por este arquivo:
+  ele já é exatamente onde a requisição começa e termina. `ActivitySource` e `Meter` estão
+  no framework compartilhado do .NET 10, então **não custam `PackageReference` novo** — a
+  regra do `*.Abstractions` continua de pé. A escolha de backend, amostragem e retenção
+  merece ADR próprio, com uma cláusula herdada desta seção: nenhum sinal carrega dado de
+  pessoa, e log não é o único sinal que vaza.
+
 ## O que não está aqui, e por quê
 
 **Sem `Bind`, `Map`, `Tap` ou `Ensure`.** É o próximo passo natural do padrão e é uma
@@ -523,7 +643,7 @@ que precisar abortar.
 
 ## Armadilhas de build
 
-Quatro formas neste código foram impostas pelos analisadores, não escolhidas. Valem
+Seis formas neste código foram impostas pelos analisadores, não escolhidas. Valem
 registro porque **todo exemplo que você achar na internet falha aqui**:
 
 - **`Result` e `Result<T>` em arquivos separados** (`Result.cs`, `ResultOfT.cs`), por
@@ -547,13 +667,24 @@ registro porque **todo exemplo que você achar na internet falha aqui**:
   nenhum — é interface marcadora, e o `TResponse` existe para o compilador amarrar
   requisição e resposta na assinatura do handler. Satisfazer a regra exigiria inventar um
   membro que ninguém implementa.
+- **O `typeof(TRequest).Name` repetido nas duas chamadas de log**, em vez de guardado num
+  `static readonly`. A `S2743` proíbe campo estático em tipo genérico, e com razão: em
+  `LoggingBehavior<TRequest, TResponse>` existe um campo por combinação fechada, o que
+  quase sempre é o bug de quem esperava um só. Aqui seria o comportamento desejado, mas o
+  ganho é uma leitura de metadado por requisição — não vale a supressão.
+- **O `if (_logger.IsEnabled(logLevel))` em volta do `finally`.** A `CA1873` reprova
+  calcular argumento caro que pode ser descartado, e `typeof(TRequest).Name` conta como
+  caro. A guarda paga por si: com o anel desligado por configuração, nem o nome do tipo nem
+  a duração chegam a ser calculados. O cronômetro é `Stopwatch.GetTimestamp()` com
+  `GetElapsedTime`, e não `Stopwatch.StartNew()`, para não alocar um objeto por requisição
+  por anel.
 
 ## Testes
 
 | Projeto | Cobre |
 | --- | --- |
 | `tests/CathedrAll.Kernel.Domain.Tests/` | `Result`, `Error`, `Entity`, `AggregateRoot`, `DomainEvent` |
-| `tests/CathedrAll.Kernel.Application.Tests/` | despacho, cadeia de behaviors, registro de DI |
+| `tests/CathedrAll.Kernel.Application.Tests/` | despacho, cadeia de behaviors, `LoggingBehavior`, registro de DI |
 
 Unitários puros nos dois: sem host, sem banco. Os dublês são classes escritas à mão, e
 **não há biblioteca de mock no `Directory.Packages.props`** — nem deve haver. Um
@@ -599,3 +730,23 @@ ficam travadas — e vale saber como cada uma falha, porque as falhas não se pa
 O `ValidateScopes = true` na construção do provider é o que transforma "registrei o
 `ISender` com o lifetime errado" em teste vermelho, em vez de captive dependency
 descoberta sob carga em produção. Não tire.
+
+### O teste que carrega peso no `LoggingBehavior`
+
+É o do vazamento: a requisição leva a string `"cpf-do-membro"` no corpo, e o teste varre a
+mensagem formatada **e** todos os campos estruturados de todos os registros procurando por
+ela. Ele existe porque essa é a única falha desta classe que não se anuncia — anel na ordem
+errada quebra o teste de ordem, nível errado quebra o teste de nível, e vazamento de dado
+pessoal passa em tudo.
+
+Vale saber que ele é o mais sensível dos sete. Trocando `typeof(TRequest).Name` por
+`request` no behavior, o teste do vazamento fica vermelho na hora; o que confere o nome da
+requisição **continua verde**, porque `RequisicaoFalsa.ToString()` também contém
+`"RequisicaoFalsa"`. Se um dia for preciso escolher qual manter, é este.
+
+O `ILoggerFactory` e o `ILogger` dos testes também são dublês escritos à mão, pelo mesmo
+motivo dos outros — e com um efeito colateral bem-vindo: o projeto de teste não precisa do
+`Microsoft.Extensions.Logging` concreto, então a regra do `*.Abstractions` vale dos dois
+lados. O `IsEnabled` do dublê devolve `true` sempre, e é ele que abre a guarda da `CA1873`:
+um dublê mais realista, que filtrasse por nível, derrubaria os sete testes por ausência de
+log — vermelho confuso, cuja causa estaria no dublê e não no behavior.

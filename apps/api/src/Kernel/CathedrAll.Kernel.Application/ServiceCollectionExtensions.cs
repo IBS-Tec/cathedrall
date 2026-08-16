@@ -10,4 +10,12 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<ISender, Sender>();
         return services;
     }
+
+    public static IServiceCollection AddLoggingBehavior(this IServiceCollection services)
+    {
+        services.TryAddEnumerable(
+            ServiceDescriptor.Scoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>)));
+
+        return services;
+    }
 }

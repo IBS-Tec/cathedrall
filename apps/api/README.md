@@ -2,12 +2,13 @@
 
 .NET 10, ASP.NET Core, Minimal API. Domínio: `api.ibscristo.com.br`.
 
-> **Estado: host e kernel.** Existem o host com `/health`, a configuração de build e o
-> kernel de domínio — `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`,
-> `DomainEvent`, descritos em [`src/Kernel/README.md`](src/Kernel/README.md). Nenhum
-> módulo, nenhum acesso a banco, nenhuma autenticação, nenhum mediator. A API está sendo
-> reconstruída do zero, em passos pequenos. Este README descreve só o que já existe — se
-> algo não estiver aqui, não foi construído ainda.
+> **Estado: host, kernel e mediator.** Existem o host com `/health`, a configuração de
+> build, o kernel de domínio — `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`,
+> `DomainEvent` — e o mediator com um único behavior, o de log. Tudo descrito em
+> [`src/Kernel/README.md`](src/Kernel/README.md). Nenhum módulo, nenhum acesso a banco,
+> nenhuma autenticação, nenhum handler. A API está sendo reconstruída do zero, em passos
+> pequenos. Este README descreve só o que já existe — se algo não estiver aqui, não foi
+> construído ainda.
 
 ## Comandos
 
@@ -76,17 +77,31 @@ cp src/Bootstrapper/CathedrAll.Api/appsettings.Development.json{.example,}
 ```
 src/
   Bootstrapper/
-    CathedrAll.Api/                  host; sobe a aplicação e mapeia /health
+    CathedrAll.Api/                       host; sobe a aplicação, registra o
+                                          mediator e o pipeline, mapeia /health
   Kernel/
-    CathedrAll.Kernel.Domain/        Result, Error, ErrorType
+    CathedrAll.Kernel.Domain/             Result, Error, ErrorType, Entity
+    CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior
 tests/
-  CathedrAll.Api.Tests/              testes de integração do host
-  CathedrAll.Kernel.Domain.Tests/    testes unitários do kernel
+  CathedrAll.Api.Tests/                   testes de integração do host
+  CathedrAll.Kernel.Domain.Tests/         testes unitários do kernel de domínio
+  CathedrAll.Kernel.Application.Tests/    testes unitários do mediator
 ```
 
 O kernel compartilhado tem [README próprio](src/Kernel/README.md), com a regra que decide
 quando uma falha é `Result` e quando é exceção. É a única parte dele que precisa estar na
 cabeça de quem escreve um handler.
+
+O host é o único lugar que monta o pipeline, e ele fica visível no `Program.cs`:
+
+```csharp
+builder.Services.AddKernelApplication();
+builder.Services.AddLoggingBehavior();
+```
+
+A segunda linha é opcional por desenho — **a ordem das linhas é a ordem dos anéis**, e
+escondê-la dentro do registro do mediator tiraria do `Program.cs` a única visão que existe
+do pipeline inteiro. O porquê de cada anel ficar onde fica está no README do kernel.
 
 **Cada projeto de origem tem o próprio projeto de teste.** Um projeto de teste único
 precisaria referenciar todos os módulos, e seria o único assembly onde tipos de módulos
