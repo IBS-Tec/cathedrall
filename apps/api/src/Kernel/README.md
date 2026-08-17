@@ -203,7 +203,12 @@ ele recebe o **`Error`**, não o `Result`: o lado do sucesso — 200 com corpo, 
 `Location`, 204 sem nada — é conhecimento do endpoint, e passá-lo como lambda nos levaria
 exatamente à torre de `Bind`/`Map`/`Tap` que este kernel recusou.
 
-**O segundo ainda não existe.**
+**O segundo também existe: `GlobalExceptionHandler`, no host.** Ele registra o stack trace —
+é o único lugar do sistema que o faz — e devolve 500 sem vazar detalhe. Repare que ele produz
+o 500 chamando o **mesmo** `ToProblem()`: a garantia de que as duas respostas 500 da API têm
+a mesma forma é estrutural, não uma convenção que alguém precisa lembrar.
+
+Com os dois no lugar, **um `try/catch` num handler de módulo não tem mais desculpa.**
 
 ## Entidade, agregado e evento
 
@@ -557,6 +562,7 @@ warn: CathedrAll.Kernel.Application.Pipeline[0]
 | `Result` bem-sucedido, ou resposta que não é `Result` | `Information` | — |
 | `Result` com `IsFailure` | `Warning` | `ErrorCode` |
 | Exceção | `Error` | — |
+| `OperationCanceledException` | `Information` | — |
 
 Os níveis são a mesma regra de corte do começo deste README, dita de outro jeito: **falha
 de negócio é o usuário errando, e usuário errando não é incidente.** Se e-mail mal digitado
@@ -567,6 +573,17 @@ certo.
 Repare na primeira linha da tabela: um handler que devolve `string` termina em `success`
 mesmo tendo recusado o pedido, porque o behavior só sabe ler o que passa por `Result`. É
 mais um motivo para handler devolver `Result`.
+
+A última linha é a mesma regra aplicada ao cancelamento: **usuário que fecha a aba não é
+incidente.** Sai `canceled` em `Information`.
+
+Note o que este behavior **não** consegue decidir: se aquele cancelamento foi o cliente
+desistindo ou um timeout interno estourando. A diferença está no `RequestAborted` do
+`HttpContext`, e o kernel não conhece HTTP — nem deve. Então a divisão de trabalho é esta: o
+behavior registra o **fato** (a requisição foi cancelada), e o `GlobalExceptionHandler` do
+host, que tem o `HttpContext` na mão, faz o **juízo** (isso foi rotina ou falha). Nenhum
+incidente se perde nessa divisão, porque quando é falha de verdade é o handler que emite a
+linha de `Error` com o stack trace.
 
 ### O que ele nunca registra
 
@@ -605,23 +622,25 @@ Essa string tem teste. Errar uma letra nela não quebra build nem teste de compo
 só faz o filtro parar de casar, em silêncio, e a descoberta acontece quando alguém precisar
 baixar o volume de log em produção.
 
-### `try/finally` sem `catch`
+### O `catch` que não loga
 
-A exceção sobe intacta: o behavior registra o **desfecho** e não toca no objeto. Quem loga
-stack trace é o `IExceptionHandler` global do host, que ainda não existe.
+**Nenhum `catch` aqui registra log.** O único que existe classifica o cancelamento — mexe em
+duas variáveis locais e relança —, e quem escreve a linha continua sendo o `finally`. A
+exceção sobe intacta: o behavior registra o **desfecho** e não toca no objeto.
 
-O caminho que todo exemplo mostra — `catch`, logar, `throw` — registraria a mesma falha
-duas vezes com o mesmo peso, uma vez aqui e outra no handler global, e quem estivesse
-lendo o log contaria dois incidentes onde houve um. Os analisadores já sabem disso:
-`S2139` e `S6667` reprovam logar e relançar. `try/finally` resolve os dois de uma vez e
-ainda garante a linha de log no caminho de exceção.
+O caminho que todo exemplo mostra — `catch`, logar, `throw` — registraria a mesma falha duas
+vezes com o mesmo peso, uma vez aqui e outra no handler global, e quem estivesse lendo o log
+contaria dois incidentes onde houve um. Os analisadores já sabem disso: `S2139` e `S6667`
+reprovam logar e relançar. Manter o log no `finally` resolve os dois de uma vez e ainda
+garante a linha no caminho de exceção.
+
+O que junta as duas linhas que sobram — o desfecho daqui e o stack trace do
+`GlobalExceptionHandler` — é o `traceId`, que aparece nas duas e no corpo da resposta
+([ADR-0014](../../../../docs/adr/0014-problem-details-como-formato-unico-de-erro.md)). Sem
+ele, duas linhas seriam de fato dois incidentes para quem lê o log.
 
 ### O que ainda não está aqui
 
-- **Cancelamento cai como exceção.** Cliente que desiste no meio produz
-  `OperationCanceledException`, que hoje vira `Error` e `exception`. Deveria ser rotina, não
-  incidente. Fica assim de propósito até o handler global existir: os dois vão precisar
-  concordar sobre o que é cancelamento, e decidir agora é adivinhar sozinho.
 - **Sem *trace*, sem métrica.** Quando o OpenTelemetry entrar, entra por este arquivo:
   ele já é exatamente onde a requisição começa e termina. `ActivitySource` e `Meter` estão
   no framework compartilhado do .NET 10, então **não custam `PackageReference` novo** — a

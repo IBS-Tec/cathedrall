@@ -4,12 +4,12 @@
 
 > **Estado: host, kernel, mediator e o formato de erro.** Existem o host com `/health`, a
 > configuração de build, o kernel de domínio — `Result`, `Error`, `ErrorType`, `Entity`,
-> `AggregateRoot`, `DomainEvent` —, o mediator com um único behavior, o de log, e o mapeador
-> de `Error` para HTTP descrito em [Formato de erro](#formato-de-erro). O kernel está em
-> [`src/Kernel/README.md`](src/Kernel/README.md). Nenhum módulo, nenhum acesso a banco,
-> nenhuma autenticação, nenhum handler, nenhum `IExceptionHandler` global. A API está sendo
-> reconstruída do zero, em passos pequenos. Este README descreve só o que já existe — se
-> algo não estiver aqui, não foi construído ainda.
+> `AggregateRoot`, `DomainEvent` —, o mediator com um único behavior, o de log, e os dois
+> pontos de conversão da fronteira HTTP descritos em [Formato de erro](#formato-de-erro). O
+> kernel está em [`src/Kernel/README.md`](src/Kernel/README.md). Nenhum módulo, nenhum acesso
+> a banco, nenhuma autenticação, nenhum handler de requisição. A API está sendo reconstruída
+> do zero, em passos pequenos. Este README descreve só o que já existe — se algo não estiver
+> aqui, não foi construído ainda.
 
 ## Comandos
 
@@ -99,11 +99,12 @@ nada no compilador as protege:
 2. **Nunca renderize `title`.** Ele é genérico por status e fica em inglês de propósito. O
    texto para o usuário é o `detail`.
 
-Três peças no `Program.cs` produzem esse formato, e as três são necessárias:
+Quatro peças no `Program.cs` produzem esse formato, e as quatro são necessárias:
 
 | Peça | Cobre |
 | --- | --- |
 | `ErrorResults.ToProblem()` | a falha de um `Result` nosso |
+| `GlobalExceptionHandler` | a exceção não capturada, e o cancelamento |
 | `AddProblemDetails` + `CustomizeProblemDetails` | o `traceId`, em todo problem+json |
 | `UseStatusCodePages` | os erros do framework: rota inexistente, método não permitido |
 
@@ -118,9 +119,53 @@ juntar log e resposta: é por ele que um erro relatado pela secretaria acha a re
 log. Ele é acrescentado uma vez, na customização — não no mapeador. Se fosse no mapeador, só
 os nossos erros o teriam.
 
-**O que ainda não está coberto na rede: o campo `code`.** O 404 do framework não tem um, e
-nenhum endpoint devolve `Result` ainda, então hoje o `code` é verificado só por teste unitário
-sobre o `ProblemHttpResult`. O primeiro endpoint de módulo é quem fecha essa lacuna.
+### Exceção não capturada e cancelamento
+
+O `GlobalExceptionHandler` tem três caminhos, e a ordem entre eles é o desenho:
+
+| Situação | O que faz |
+| --- | --- |
+| `RequestAborted` cancelado | log de rotina, sem corpo. Não há ninguém do outro lado do socket |
+| `Response.HasStarted` | log de erro e devolve `false`: não dá mais para trocar o status |
+| qualquer outra exceção | log de erro **com stack trace**, e 500 em problem+json |
+
+**O teste do cancelamento é o token, não o tipo da exceção.** Um timeout interno também lança
+`OperationCanceledException`, e esse **é** falha de verdade — se a classificação fosse pelo
+tipo, ela silenciaria justamente o caso que interessa. Quem distingue é o
+`RequestAborted.IsCancellationRequested`.
+
+**O 500 sai pelo mesmo `ToProblem()`.** O handler monta um
+`Error.Failure("Server.UnexpectedFailure", …)` e chama o mapeador, em vez de escrever o corpo
+por conta própria. Assim as duas respostas 500 da API — a de um `Result` que falhou e a de uma
+exceção — têm a mesma forma **por construção**. Escrever o corpo à mão aqui funcionaria hoje e
+divergiria no primeiro ajuste feito só de um lado.
+
+O `exception.Message` **nunca** entra no corpo. Há teste que joga uma string reconhecível na
+exceção e varre a resposta inteira procurando por ela: é a única falha desta classe que não se
+anuncia, porque vazar detalhe não deixa a resposta lenta nem errada, só mais informativa para
+quem não devia.
+
+**Um custo declarado:** quando o cliente desiste, o handler registra em `Information` mesmo se
+a exceção era um bug de verdade que por acaso coincidiu com a desconexão. A exceção vai para o
+log junto, então o stack trace não se perde, mas **nenhum alerta dispara**. É o preço de não
+tratar cada aba fechada como incidente, e o caminho ao contrário — `Error` em todo
+cancelamento — treina o time a ignorar o canal.
+
+### O que os testes não cobrem
+
+**O caminho do 500 é verificado no handler, não pelo middleware.** Os testes chamam
+`TryHandleAsync` direto, com um `DefaultHttpContext`; ninguém sobe a aplicação e provoca uma
+exceção de verdade, porque não existe endpoint que lance. O `UseExceptionHandler` estar na
+ordem certa do pipeline é hoje conferido a olho.
+
+Vale saber de uma armadilha para quando esse teste existir: em Development o `WebApplication`
+põe o `DeveloperExceptionPage` na frente do pipeline, e o `WebApplicationFactory` sobe em
+Development por padrão — o teste veria HTML em vez de problem+json. A saída é fixar
+`UseEnvironment("Production")`.
+
+**O campo `code` na rede** é verificado na serialização — o teste do handler lê o JSON escrito
+no corpo — mas não através de um endpoint real, porque nenhum devolve `Result` ainda. O
+primeiro módulo é quem fecha essa lacuna.
 
 ## Estrutura
 
@@ -128,8 +173,9 @@ sobre o `ProblemHttpResult`. O primeiro endpoint de módulo é quem fecha essa l
 src/
   Bootstrapper/
     CathedrAll.Api/                       host; sobe a aplicação, registra o
-                                          mediator e o pipeline, mapeia /health
-                                          e converte Error em ProblemDetails
+                                          mediator e o pipeline, mapeia /health,
+                                          converte Error em ProblemDetails e
+                                          trata a exceção não capturada
   Kernel/
     CathedrAll.Kernel.Domain/             Result, Error, ErrorType, Entity
     CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior
@@ -166,11 +212,12 @@ sem mock e sem porta de rede, é o `Program.cs` de verdade que responde. Para um
 espessura, testar por dentro não valeria a pena: o que pode quebrar é justamente o
 encanamento entre rota, middleware e serviço registrado, e é o que só aparece subindo tudo.
 
-A exceção é o `ErrorResultsTests`, que é unitário: chama `ToProblem()` e inspeciona o
-`ProblemHttpResult` devolvido, sem HTTP. A tabela `ErrorType` → status é uma função pura, e
-subir a aplicação para conferir quatro linhas de `switch` só tornaria a falha mais lenta e
-menos legível. **O preço disso está declarado** em [Formato de erro](#formato-de-erro): o
-campo `code` fica sem prova na rede até o primeiro endpoint devolver `Result`.
+As exceções são o `ErrorResultsTests` e o `GlobalExceptionHandlerTests`, os dois unitários: um
+chama `ToProblem()` e inspeciona o `ProblemHttpResult`, o outro chama `TryHandleAsync` com um
+`DefaultHttpContext`. A tabela `ErrorType` → status é função pura, e o handler precisa de
+estados que uma requisição de verdade não produz sob comando — cliente desistindo, resposta já
+iniciada. Subir a aplicação para isso tornaria a falha mais lenta e menos legível. **O preço
+está declarado** em [O que os testes não cobrem](#o-que-os-testes-não-cobrem).
 
 Os projetos se chamam `.Tests` de propósito: o `Directory.Build.props` reconhece o sufixo e
 relaxa as regras que brigam com teste. A localização em `tests/` é livre — a condição é

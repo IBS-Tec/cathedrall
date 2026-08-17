@@ -44,6 +44,13 @@ internal sealed class LoggingBehavior<TRequest, TResponse>(ILoggerFactory factor
 
             return response;
         }
+        catch (OperationCanceledException)
+        {
+            logLevel = LogLevel.Information;
+            outcome = "canceled";
+
+            throw;
+        }
         finally
         {
             if (_logger.IsEnabled(logLevel))
