@@ -25,3 +25,4 @@ de biblioteca de máscara de CPF.
 | [0011](0011-shadcn-tailwind-nos-dois-frontends.md) | shadcn/ui e Tailwind nos dois frontends | Aceito |
 | [0012](0012-monolito-modular-estrito-com-mediator-proprio.md) | Monólito modular estrito, DDD e mediator próprio | Aceito |
 | [0013](0013-ingles-como-idioma-de-codigo-portugues-no-dominio.md) | Inglês como idioma de código, português no domínio | Aceito |
+| [0014](0014-problem-details-como-formato-unico-de-erro.md) | ProblemDetails como formato único de erro da API | Aceito |
