@@ -1,4 +1,4 @@
-export function Inicio() {
+export function Home() {
   return (
     <div className="space-y-2">
       <h1 className="text-2xl font-semibold">Painel</h1>

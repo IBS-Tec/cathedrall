@@ -1,18 +1,18 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class BehaviorAberto<TRequest, TResponse>(List<string> rastro)
+internal sealed class CommandOnlyBehavior<TRequest, TResponse>(List<string> trace)
     : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+    where TRequest : ICommand<TResponse>
 {
     public async Task<TResponse> HandleAsync(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        rastro.Add("aberto antes");
-        TResponse resposta = await next();
-        rastro.Add("aberto depois");
+        trace.Add("command before");
+        TResponse response = await next();
+        trace.Add("command after");
 
-        return resposta;
+        return response;
     }
 }

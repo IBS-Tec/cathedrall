@@ -26,30 +26,30 @@ import { Input } from "@/components/ui/input";
  * Este componente encapsula isso uma vez. Ver ADR-0011: componente composto se
  * constrói uma vez, em components/, e se reutiliza.
  */
-type CampoTextoProps<T extends FieldValues> = {
+type TextFieldProps<T extends FieldValues> = {
   control: Control<T>;
   name: FieldPath<T>;
-  rotulo: string;
-  descricao?: string;
+  label: string;
+  description?: string;
   placeholder?: string;
   type?: ComponentProps<typeof Input>["type"];
 };
 
-export function CampoTexto<T extends FieldValues>({
+export function TextField<T extends FieldValues>({
   control,
   name,
-  rotulo,
-  descricao,
+  label,
+  description,
   placeholder,
   type,
-}: CampoTextoProps<T>) {
+}: TextFieldProps<T>) {
   return (
     <Controller
       control={control}
       name={name}
       render={({ field, fieldState }) => (
         <Field data-invalid={fieldState.invalid}>
-          <FieldLabel htmlFor={field.name}>{rotulo}</FieldLabel>
+          <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
           <Input
             {...field}
             id={field.name}
@@ -57,7 +57,7 @@ export function CampoTexto<T extends FieldValues>({
             placeholder={placeholder}
             aria-invalid={fieldState.invalid}
           />
-          {descricao && <FieldDescription>{descricao}</FieldDescription>}
+          {description && <FieldDescription>{description}</FieldDescription>}
           {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
         </Field>
       )}

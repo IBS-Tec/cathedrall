@@ -8,23 +8,23 @@ internal sealed class LoggingBehavior<TRequest, TResponse>(ILoggerFactory factor
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
-    private const string Categoria = "CathedrAll.Kernel.Application.Pipeline";
+    private const string Category = "CathedrAll.Kernel.Application.Pipeline";
 
-    private const string Template = "Requisição {Requisicao} terminou com {Desfecho} em {DuracaoMs} ms";
+    private const string Template = "Request {Request} finished with {Outcome} in {DurationMs} ms";
 
-    private const string TemplateErro = "Requisição {Requisicao} terminou com {Desfecho} em {DuracaoMs} ms, erro {Codigo}";
+    private const string ErrorTemplate = "Request {Request} finished with {Outcome} in {DurationMs} ms, error {ErrorCode}";
 
-    private readonly ILogger _logger = factory.CreateLogger(Categoria);
+    private readonly ILogger _logger = factory.CreateLogger(Category);
 
     public async Task<TResponse> HandleAsync(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        long inicio = Stopwatch.GetTimestamp();
+        long start = Stopwatch.GetTimestamp();
         LogLevel logLevel = LogLevel.Error;
-        string desfecho = "exceção";
-        string? codigo = null;
+        string outcome = "exception";
+        string? errorCode = null;
 
         try
         {
@@ -33,13 +33,13 @@ internal sealed class LoggingBehavior<TRequest, TResponse>(ILoggerFactory factor
             if (response is Result result && result.IsFailure)
             {
                 logLevel = LogLevel.Warning;
-                desfecho = "falha";
-                codigo = result.Error.Code;
+                outcome = "failure";
+                errorCode = result.Error.Code;
             }
             else
             {
                 logLevel = LogLevel.Information;
-                desfecho = "sucesso";
+                outcome = "success";
             }
 
             return response;
@@ -48,15 +48,15 @@ internal sealed class LoggingBehavior<TRequest, TResponse>(ILoggerFactory factor
         {
             if (_logger.IsEnabled(logLevel))
             {
-                double duracao = Stopwatch.GetElapsedTime(inicio).TotalMilliseconds;
+                double duration = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
 
-                if (codigo is null)
+                if (errorCode is null)
                 {
-                    _logger.Log(logLevel, Template, typeof(TRequest).Name, desfecho, duracao);
+                    _logger.Log(logLevel, Template, typeof(TRequest).Name, outcome, duration);
                 }
                 else
                 {
-                    _logger.Log(logLevel, TemplateErro, typeof(TRequest).Name, desfecho, duracao, codigo);
+                    _logger.Log(logLevel, ErrorTemplate, typeof(TRequest).Name, outcome, duration, errorCode);
                 }
             }
         }

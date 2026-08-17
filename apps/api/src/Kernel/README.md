@@ -110,14 +110,15 @@ três camadas adiante, longe da causa.
 ## `Error`: `Code` é contrato, `Description` é texto
 
 ```csharp
-Error.Validation("Pessoa.EmailInvalido", "E-mail em formato inválido.")
-Error.NotFound("Pessoa.NaoEncontrada", "Pessoa não encontrada.")
-Error.Conflict("Escala.PessoaIndisponivel", "A pessoa está indisponível nesta data.")
-Error.Failure("Pessoa.FalhaInesperada", "Não foi possível concluir.")
+Error.Validation("Pessoa.InvalidEmail", "E-mail em formato inválido.")
+Error.NotFound("Pessoa.NotFound", "Pessoa não encontrada.")
+Error.Conflict("Escala.PessoaUnavailable", "A pessoa está indisponível nesta data.")
+Error.Failure("Pessoa.UnexpectedFailure", "Não foi possível concluir.")
 ```
 
 - **`Code`** é contrato de API. A SPA pode ramificar nele. Uma vez publicado, mudar é
-  breaking change. Formato: `<Agregado>.<Situacao>`, PascalCase.
+  breaking change. Formato: `<Agregado>.<Situação>`, PascalCase — agregado em português,
+  situação em inglês (ADR-0013).
 - **`Description`** é texto para humano. Muda quando quiser, inclusive por pedido da
   secretaria.
 
@@ -137,19 +138,21 @@ poupando um `Error?` e o aviso de nulabilidade em cada consumidor.
 **Não no kernel.** Cada módulo declara os seus, junto do agregado dono deles:
 
 ```csharp
-public static class PessoaErros
+public static class PessoaErrors
 {
-    public static readonly Error NaoEncontrada =
-        Error.NotFound("Pessoa.NaoEncontrada", "Pessoa não encontrada.");
+    public static readonly Error NotFound =
+        Error.NotFound("Pessoa.NotFound", "Pessoa não encontrada.");
 }
 ```
 
 O kernel define a forma do erro; o módulo define o vocabulário. Se um erro de `Pessoas`
 precisasse existir no kernel, a fronteira do ADR-0012 já estaria furada.
 
-Repare na mistura de idiomas, que é deliberada: `Error.NotFound(...)` é framework e fica
-em inglês; `"Pessoa.NaoEncontrada"` é o domínio da igreja e fica em português. A fronteira
-é o parêntese.
+Repare na mistura de idiomas, que é deliberada e segue o
+[ADR-0013](../../../../docs/adr/0013-ingles-como-idioma-de-codigo-portugues-no-dominio.md):
+`Pessoa` é a entidade da igreja e fica em português; `NotFound` é o vocabulário de
+`ErrorType` e fica em inglês. A fronteira é o ponto. A `Description`, que o usuário lê,
+é sempre português.
 
 ## `ErrorType` e a resposta HTTP
 
@@ -533,15 +536,15 @@ falha de negócio e exceção:
 
 ```
 info: CathedrAll.Kernel.Application.Pipeline[0]
-      Requisição CadastrarPessoa terminou com sucesso em 12,4 ms
+      Request CadastrarPessoa finished with success in 12,4 ms
 warn: CathedrAll.Kernel.Application.Pipeline[0]
-      Requisição CadastrarPessoa terminou com falha em 3,1 ms, erro Pessoa.EmailInvalido
+      Request CadastrarPessoa finished with failure in 3,1 ms, error Pessoa.InvalidEmail
 ```
 
 | Desfecho | Nível | Campo extra |
 | --- | --- | --- |
 | `Result` bem-sucedido, ou resposta que não é `Result` | `Information` | — |
-| `Result` com `IsFailure` | `Warning` | `Codigo` |
+| `Result` com `IsFailure` | `Warning` | `ErrorCode` |
 | Exceção | `Error` | — |
 
 Os níveis são a mesma regra de corte do começo deste README, dita de outro jeito: **falha
@@ -550,7 +553,7 @@ saísse como `Error`, o alerta dispararia várias vezes por dia sem nada para fa
 respeito, e o time aprenderia a ignorar o canal — inclusive nas vezes em que ele estivesse
 certo.
 
-Repare na primeira linha da tabela: um handler que devolve `string` termina em "sucesso"
+Repare na primeira linha da tabela: um handler que devolve `string` termina em `success`
 mesmo tendo recusado o pedido, porque o behavior só sabe ler o que passa por `Result`. É
 mais um motivo para handler devolver `Result`.
 
@@ -605,7 +608,7 @@ ainda garante a linha de log no caminho de exceção.
 ### O que ainda não está aqui
 
 - **Cancelamento cai como exceção.** Cliente que desiste no meio produz
-  `OperationCanceledException`, que hoje vira `Error` e "exceção". Deveria ser rotina, não
+  `OperationCanceledException`, que hoje vira `Error` e `exception`. Deveria ser rotina, não
   incidente. Fica assim de propósito até o handler global existir: os dois vão precisar
   concordar sobre o que é cancelamento, e decidir agora é adivinhar sozinho.
 - **Sem *trace*, sem métrica.** Quando o OpenTelemetry entrar, entra por este arquivo:
@@ -688,7 +691,7 @@ registro porque **todo exemplo que você achar na internet falha aqui**:
 
 Unitários puros nos dois: sem host, sem banco. Os dublês são classes escritas à mão, e
 **não há biblioteca de mock no `Directory.Packages.props`** — nem deve haver. Um
-`HandlerFalso` de dez linhas é mais legível para quem chega do que a API de setup de
+`FakeHandler` de dez linhas é mais legível para quem chega do que a API de setup de
 qualquer framework de mock, e este projeto tem rotatividade alta.
 
 Uma regra que parece detalhe: o rastro que os behaviors escrevem **nunca pode ser
@@ -741,8 +744,8 @@ pessoal passa em tudo.
 
 Vale saber que ele é o mais sensível dos sete. Trocando `typeof(TRequest).Name` por
 `request` no behavior, o teste do vazamento fica vermelho na hora; o que confere o nome da
-requisição **continua verde**, porque `RequisicaoFalsa.ToString()` também contém
-`"RequisicaoFalsa"`. Se um dia for preciso escolher qual manter, é este.
+requisição **continua verde**, porque `FakeRequest.ToString()` também contém
+`"FakeRequest"`. Se um dia for preciso escolher qual manter, é este.
 
 O `ILoggerFactory` e o `ILogger` dos testes também são dublês escritos à mão, pelo mesmo
 motivo dos outros — e com um efeito colateral bem-vindo: o projeto de teste não precisa do

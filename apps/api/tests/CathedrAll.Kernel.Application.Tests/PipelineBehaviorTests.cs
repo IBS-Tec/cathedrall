@@ -7,142 +7,142 @@ public sealed class PipelineBehaviorTests
     [Fact]
     public async Task Behaviors_devem_envolver_o_handler_na_ordem_de_registro()
     {
-        List<string> rastro = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerFalso(rastro));
-            servicos.AddSingleton<IPipelineBehavior<RequisicaoFalsa, string>>(new BehaviorRastreado("A", rastro));
-            servicos.AddSingleton<IPipelineBehavior<RequisicaoFalsa, string>>(new BehaviorRastreado("B", rastro));
-            servicos.AddSingleton<IPipelineBehavior<RequisicaoFalsa, string>>(new BehaviorRastreado("C", rastro));
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new FakeHandler(trace));
+            services.AddSingleton<IPipelineBehavior<FakeRequest, string>>(new TracingBehavior("A", trace));
+            services.AddSingleton<IPipelineBehavior<FakeRequest, string>>(new TracingBehavior("B", trace));
+            services.AddSingleton<IPipelineBehavior<FakeRequest, string>>(new TracingBehavior("C", trace));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        string[] esperado =
+        string[] expected =
         [
-            "A antes",
-            "B antes",
-            "C antes",
+            "A before",
+            "B before",
+            "C before",
             "handler",
-            "C depois",
-            "B depois",
-            "A depois",
+            "C after",
+            "B after",
+            "A after",
         ];
 
-        Assert.Equal(esperado, rastro);
+        Assert.Equal(expected, trace);
     }
 
     [Fact]
     public async Task Behavior_que_nao_chama_next_deve_impedir_o_handler()
     {
-        List<string> rastro = [];
-        HandlerFalso handler = new(rastro);
+        List<string> trace = [];
+        FakeHandler handler = new(trace);
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(handler);
-            servicos.AddSingleton<IPipelineBehavior<RequisicaoFalsa, string>>(new BehaviorQueCurtoCircuita(rastro));
-            servicos.AddSingleton<IPipelineBehavior<RequisicaoFalsa, string>>(new BehaviorRastreado("A", rastro));
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(handler);
+            services.AddSingleton<IPipelineBehavior<FakeRequest, string>>(new ShortCircuitingBehavior(trace));
+            services.AddSingleton<IPipelineBehavior<FakeRequest, string>>(new TracingBehavior("A", trace));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        string resposta = await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        string response = await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        string[] esperado = ["curto antes"];
+        string[] expected = ["short before"];
 
-        Assert.Equal(BehaviorQueCurtoCircuita.Resposta, resposta);
-        Assert.Equal(esperado, rastro);
-        Assert.Null(handler.RequisicaoRecebida);
+        Assert.Equal(ShortCircuitingBehavior.Response, response);
+        Assert.Equal(expected, trace);
+        Assert.Null(handler.ReceivedRequest);
     }
 
     [Fact]
     public async Task Behavior_deve_conseguir_transformar_a_resposta_do_handler()
     {
-        List<string> rastro = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerFalso(rastro));
-            servicos.AddSingleton<IPipelineBehavior<RequisicaoFalsa, string>, BehaviorQueTransforma>();
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new FakeHandler(trace));
+            services.AddSingleton<IPipelineBehavior<FakeRequest, string>, TransformingBehavior>();
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        string resposta = await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        string response = await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        Assert.Equal($"[{HandlerFalso.Resposta}]", resposta);
+        Assert.Equal($"[{FakeHandler.Response}]", response);
     }
 
     [Fact]
     public async Task Behavior_registrado_como_generico_aberto_deve_entrar_na_cadeia()
     {
-        List<string> rastro = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton(rastro);
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerFalso(rastro));
-            servicos.AddScoped(typeof(IPipelineBehavior<,>), typeof(BehaviorAberto<,>));
+            services.AddSingleton(trace);
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new FakeHandler(trace));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(OpenGenericBehavior<,>));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        string[] esperado = ["aberto antes", "handler", "aberto depois"];
+        string[] expected = ["open before", "handler", "open after"];
 
-        Assert.Equal(esperado, rastro);
+        Assert.Equal(expected, trace);
     }
 
     [Fact]
     public async Task Behavior_restrito_a_comando_nao_deve_entrar_na_cadeia_de_uma_requisicao_comum()
     {
-        List<string> rastro = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton(rastro);
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerFalso(rastro));
-            servicos.AddScoped(typeof(IPipelineBehavior<,>), typeof(BehaviorSoDeComando<,>));
+            services.AddSingleton(trace);
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new FakeHandler(trace));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(CommandOnlyBehavior<,>));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        string[] esperado = ["handler"];
+        string[] expected = ["handler"];
 
-        Assert.Equal(esperado, rastro);
+        Assert.Equal(expected, trace);
     }
 
     [Fact]
     public async Task Behavior_restrito_a_comando_deve_entrar_na_cadeia_de_um_comando()
     {
-        List<string> rastro = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton(rastro);
-            servicos.AddSingleton<IRequestHandler<ComandoFalso, string>>(new HandlerDeComandoFalso(rastro));
-            servicos.AddScoped(typeof(IPipelineBehavior<,>), typeof(BehaviorSoDeComando<,>));
+            services.AddSingleton(trace);
+            services.AddSingleton<IRequestHandler<FakeCommand, string>>(new FakeCommandHandler(trace));
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(CommandOnlyBehavior<,>));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<ComandoFalso, string>(new ComandoFalso("qualquer"), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeCommand, string>(new FakeCommand("qualquer"), CancellationToken.None);
 
-        string[] esperado = ["comando antes", "handler", "comando depois"];
+        string[] expected = ["command before", "handler", "command after"];
 
-        Assert.Equal(esperado, rastro);
+        Assert.Equal(expected, trace);
     }
 }

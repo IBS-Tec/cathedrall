@@ -5,8 +5,8 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 
 import "./index.css";
 // Configura as mensagens do Zod em pt-BR. Precisa vir antes de qualquer schema.
-import "./lib/validacao";
-import { rotas } from "./app/rotas";
+import "./lib/validation";
+import { routes } from "./app/routes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,7 +17,7 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={createBrowserRouter(rotas)} />
+      <RouterProvider router={createBrowserRouter(routes)} />
     </QueryClientProvider>
   </StrictMode>,
 );

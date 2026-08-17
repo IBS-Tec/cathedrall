@@ -1,9 +1,9 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class BehaviorQueTransforma : IPipelineBehavior<RequisicaoFalsa, string>
+internal sealed class TransformingBehavior : IPipelineBehavior<FakeRequest, string>
 {
     public async Task<string> HandleAsync(
-        RequisicaoFalsa request,
+        FakeRequest request,
         RequestHandlerDelegate<string> next,
         CancellationToken cancellationToken) => $"[{await next()}]";
 }

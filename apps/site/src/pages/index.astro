@@ -1,17 +1,17 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { cms, enderecoCompleto, formatarHora } from "../lib/directus";
+import { cms, fullAddress, formatTime } from "../lib/directus";
 
 const config = await cms.configuracao();
 const horarios = await cms.horarios();
 
 const nome = config.nome_igreja ?? "Igreja Bíblica Semear — Cristo Redentor";
-const endereco = enderecoCompleto(config);
+const endereco = fullAddress(config);
 ---
 
 <BaseLayout
-  titulo={nome}
-  descricao={`Cultos, endereço e contato da ${nome}.`}
+  title={nome}
+  description={`Cultos, endereço e contato da ${nome}.`}
 >
   <!--
     Ordem deliberada: onde e quando ANTES de quem somos.
@@ -60,7 +60,7 @@ const endereco = enderecoCompleto(config);
               <p class="font-medium">{h.nome}</p>
               <p class="mt-1 text-neutral-700">
                 <span class="capitalize">{h.dia_semana}</span>
-                {h.hora && <> · {formatarHora(h.hora)}</>}
+                {h.hora && <> · {formatTime(h.hora)}</>}
               </p>
               {h.observacao && (
                 <p class="mt-1 text-sm text-neutral-500">{h.observacao}</p>

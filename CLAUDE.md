@@ -34,8 +34,13 @@ Estas regras não são preferência de estilo; violá-las quebra a arquitetura.
 
 ## Convenções
 
-- Domínio e UI em **português** (`Pessoa`, `Departamento`, `Escala`). Infraestrutura e
-  termos de framework em inglês. Não misturar dentro da mesma camada.
+- **O idioma de código é o inglês** — padrão de projeto se escreve com o nome pelo qual é
+  conhecido (`Factory`, `Repository`, `Handler`, `Behavior`), e o mesmo vale para variáveis,
+  testes de apoio e campos de log. **A exceção é o vocabulário de negócio, que fica em
+  português** (`Pessoa`, `Departamento`, `Escala`, `DataInicio`) — junto com todo texto que
+  o usuário lê e os nomes de método de teste. A fronteira não é a camada, é a natureza do
+  nome: coisa da igreja em português, coisa de computador em inglês. Na dúvida, inglês.
+  Ver [ADR-0013](docs/adr/0013-ingles-como-idioma-de-codigo-portugues-no-dominio.md).
 - Vertical slices dos dois lados: `apps/api/src/CathedrAll.Api/Modules/<Modulo>/` e
   `apps/admin/src/modules/<modulo>/` se espelham.
 - Nada de pastas genéricas por tipo técnico (`Services/`, `Repositories/`, `DTOs/`).

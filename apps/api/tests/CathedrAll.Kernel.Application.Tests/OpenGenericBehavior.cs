@@ -1,18 +1,18 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class BehaviorSoDeComando<TRequest, TResponse>(List<string> rastro)
+internal sealed class OpenGenericBehavior<TRequest, TResponse>(List<string> trace)
     : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : ICommand<TResponse>
+    where TRequest : IRequest<TResponse>
 {
     public async Task<TResponse> HandleAsync(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        rastro.Add("comando antes");
-        TResponse resposta = await next();
-        rastro.Add("comando depois");
+        trace.Add("open before");
+        TResponse response = await next();
+        trace.Add("open after");
 
-        return resposta;
+        return response;
     }
 }
