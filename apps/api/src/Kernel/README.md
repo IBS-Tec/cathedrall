@@ -196,7 +196,14 @@ Com os dois, um handler de módulo não tem motivo para ter `try/catch`. **Se vo
 um, é sinal de que ou aquele erro deveria ser `Result`, ou você está engolindo algo que
 deveria subir.**
 
-Nenhum dos dois existe ainda.
+**O primeiro existe: `ErrorResults.ToProblem()`, no host.** O formato que ele produz é o do
+[ADR-0014](../../../../docs/adr/0014-problem-details-como-formato-unico-de-erro.md) — RFC
+9457, com o `Code` num membro de extensão `code` e a `Description` no `detail`. Repare que
+ele recebe o **`Error`**, não o `Result`: o lado do sucesso — 200 com corpo, 201 com
+`Location`, 204 sem nada — é conhecimento do endpoint, e passá-lo como lambda nos levaria
+exatamente à torre de `Bind`/`Map`/`Tap` que este kernel recusou.
+
+**O segundo ainda não existe.**
 
 ## Entidade, agregado e evento
 
@@ -434,12 +441,16 @@ app.MapPost("/pessoas", async (CadastrarPessoa comando, ISender sender, Cancella
 {
     Result<Guid> resultado = await sender.SendAsync<CadastrarPessoa, Result<Guid>>(comando, ct);
 
-    return resultado.IsSuccess ? Results.Ok(resultado.Value) : resultado.Error.ParaHttp();
+    return resultado.IsSuccess ? Results.Ok(resultado.Value) : resultado.Error.ToProblem();
 });
 ```
 
-O `ParaHttp()` do exemplo é o mapeador `Result` → HTTP da seção "Onde os `try/catch`
-desaparecem". Ele não existe ainda, e o nome aqui é ilustrativo — quem escrevê-lo escolhe.
+O `ToProblem()` é o mapeador da seção "Onde os `try/catch` desaparecem". Ele mora no host e é
+`internal` — o que significa que este exemplo, como está, só compila **dentro do host**. O
+ADR-0012 põe `Endpoints/` dentro de cada módulo, e módulo não referencia o host; a
+reavaliação disso está registrada no
+[ADR-0014](../../../../docs/adr/0014-problem-details-como-formato-unico-de-erro.md) e vence
+no dia em que o primeiro módulo tiver endpoint.
 
 ### `SendAsync` pede os dois tipos, e isso é de propósito
 

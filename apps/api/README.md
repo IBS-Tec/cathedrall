@@ -2,13 +2,14 @@
 
 .NET 10, ASP.NET Core, Minimal API. Domínio: `api.ibscristo.com.br`.
 
-> **Estado: host, kernel e mediator.** Existem o host com `/health`, a configuração de
-> build, o kernel de domínio — `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`,
-> `DomainEvent` — e o mediator com um único behavior, o de log. Tudo descrito em
+> **Estado: host, kernel, mediator e o formato de erro.** Existem o host com `/health`, a
+> configuração de build, o kernel de domínio — `Result`, `Error`, `ErrorType`, `Entity`,
+> `AggregateRoot`, `DomainEvent` —, o mediator com um único behavior, o de log, e o mapeador
+> de `Error` para HTTP descrito em [Formato de erro](#formato-de-erro). O kernel está em
 > [`src/Kernel/README.md`](src/Kernel/README.md). Nenhum módulo, nenhum acesso a banco,
-> nenhuma autenticação, nenhum handler. A API está sendo reconstruída do zero, em passos
-> pequenos. Este README descreve só o que já existe — se algo não estiver aqui, não foi
-> construído ainda.
+> nenhuma autenticação, nenhum handler, nenhum `IExceptionHandler` global. A API está sendo
+> reconstruída do zero, em passos pequenos. Este README descreve só o que já existe — se
+> algo não estiver aqui, não foi construído ainda.
 
 ## Comandos
 
@@ -72,6 +73,55 @@ Para começar, copie o exemplo e preencha a senha — a mesma `APP_DB_PASSWORD` 
 cp src/Bootstrapper/CathedrAll.Api/appsettings.Development.json{.example,}
 ```
 
+## Formato de erro
+
+Todo erro da API sai em `application/problem+json` (RFC 9457). O porquê de cada campo está no
+[ADR-0014](../../docs/adr/0014-problem-details-como-formato-unico-de-erro.md).
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Pessoa não encontrada.",
+  "code": "Pessoa.NotFound",
+  "traceId": "00-225d4de6e680a921a8b8bbefad510b66-d494e8ff06a97bca-00"
+}
+```
+
+O status vem do `ErrorType`: `Validation` 400, `NotFound` 404, `Conflict` 409, `Failure` 500.
+
+**Duas regras para quem escreve a SPA.** As duas quebram em silêncio se forem ignoradas —
+nada no compilador as protege:
+
+1. **Ramifique em `code`, nunca em `detail`.** `code` é contrato de API; `detail` é texto que
+   a secretaria pode pedir para reescrever a qualquer momento.
+2. **Nunca renderize `title`.** Ele é genérico por status e fica em inglês de propósito. O
+   texto para o usuário é o `detail`.
+
+Três peças no `Program.cs` produzem esse formato, e as três são necessárias:
+
+| Peça | Cobre |
+| --- | --- |
+| `ErrorResults.ToProblem()` | a falha de um `Result` nosso |
+| `AddProblemDetails` + `CustomizeProblemDetails` | o `traceId`, em todo problem+json |
+| `UseStatusCodePages` | os erros do framework: rota inexistente, método não permitido |
+
+A terceira é a menos óbvia e a mais fácil de perder num refactor. **`AddProblemDetails`
+sozinho não faz nada aparecer:** ele apenas registra o `IProblemDetailsService`, e um 404 de
+roteamento não invoca esse serviço — responde com corpo vazio e sem content-type. Há teste
+batendo numa rota inexistente por HTTP de verdade justamente para que remover essa linha
+fique vermelho.
+
+O `traceId` sai do `Activity.Current?.Id`, com o `TraceIdentifier` como reserva, e existe para
+juntar log e resposta: é por ele que um erro relatado pela secretaria acha a requisição no
+log. Ele é acrescentado uma vez, na customização — não no mapeador. Se fosse no mapeador, só
+os nossos erros o teriam.
+
+**O que ainda não está coberto na rede: o campo `code`.** O 404 do framework não tem um, e
+nenhum endpoint devolve `Result` ainda, então hoje o `code` é verificado só por teste unitário
+sobre o `ProblemHttpResult`. O primeiro endpoint de módulo é quem fecha essa lacuna.
+
 ## Estrutura
 
 ```
@@ -79,11 +129,12 @@ src/
   Bootstrapper/
     CathedrAll.Api/                       host; sobe a aplicação, registra o
                                           mediator e o pipeline, mapeia /health
+                                          e converte Error em ProblemDetails
   Kernel/
     CathedrAll.Kernel.Domain/             Result, Error, ErrorType, Entity
     CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior
 tests/
-  CathedrAll.Api.Tests/                   testes de integração do host
+  CathedrAll.Api.Tests/                   testes do host: integração e mapeamento
   CathedrAll.Kernel.Domain.Tests/         testes unitários do kernel de domínio
   CathedrAll.Kernel.Application.Tests/    testes unitários do mediator
 ```
@@ -109,10 +160,17 @@ diferentes coexistem — daria para escrever um teste que prova algo que o códi
 produção não consegue fazer. Além disso os tipos de teste são diferentes: os do kernel são
 unitários e rodam em menos de meio segundo, enquanto os do host sobem a aplicação inteira.
 
-Os testes **do host** sobem a aplicação inteira em memória, com `WebApplicationFactory`, e
-batem nos endpoints por HTTP. Sem mock e sem porta de rede: é o `Program.cs` de verdade que
-responde. Para um host desta espessura, testar por dentro não valeria a pena — o que pode
-quebrar é justamente o encanamento entre rota, middleware e serviço registrado.
+Os testes **do host** são de dois tipos, e a diferença não é estilo. A maioria sobe a
+aplicação inteira em memória, com `WebApplicationFactory`, e bate nos endpoints por HTTP —
+sem mock e sem porta de rede, é o `Program.cs` de verdade que responde. Para um host desta
+espessura, testar por dentro não valeria a pena: o que pode quebrar é justamente o
+encanamento entre rota, middleware e serviço registrado, e é o que só aparece subindo tudo.
+
+A exceção é o `ErrorResultsTests`, que é unitário: chama `ToProblem()` e inspeciona o
+`ProblemHttpResult` devolvido, sem HTTP. A tabela `ErrorType` → status é uma função pura, e
+subir a aplicação para conferir quatro linhas de `switch` só tornaria a falha mais lenta e
+menos legível. **O preço disso está declarado** em [Formato de erro](#formato-de-erro): o
+campo `code` fica sem prova na rede até o primeiro endpoint devolver `Result`.
 
 Os projetos se chamam `.Tests` de propósito: o `Directory.Build.props` reconhece o sufixo e
 relaxa as regras que brigam com teste. A localização em `tests/` é livre — a condição é
