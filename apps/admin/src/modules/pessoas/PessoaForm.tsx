@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import { CampoTexto } from "@/components/campo-texto";
+import { TextField } from "@/components/text-field";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 
@@ -19,27 +19,27 @@ export function PessoaForm() {
     defaultValues: { nome: "", telefone: "", email: "" },
   });
 
-  function aoEnviar(valores: PessoaFormValues) {
+  function onSubmit(values: PessoaFormValues) {
     // A API ainda não existe. Quando existir, isto vira uma mutation do TanStack Query
     // chamando o cliente gerado em packages/api-client — nunca fetch à mão (ADR-0005).
-    console.log(valores);
+    console.log(values);
   }
 
   return (
-    <form onSubmit={form.handleSubmit(aoEnviar)} className="max-w-md">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-md">
       <FieldGroup>
-        <CampoTexto control={form.control} name="nome" rotulo="Nome completo" />
-        <CampoTexto
+        <TextField control={form.control} name="nome" label="Nome completo" />
+        <TextField
           control={form.control}
           name="telefone"
-          rotulo="Telefone"
+          label="Telefone"
           placeholder="(00) 00000-0000"
         />
-        <CampoTexto
+        <TextField
           control={form.control}
           name="email"
-          rotulo="E-mail"
-          descricao="Opcional."
+          label="E-mail"
+          description="Opcional."
           type="email"
         />
       </FieldGroup>

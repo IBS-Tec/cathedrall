@@ -132,7 +132,7 @@ Quatro terminais, ou rode um de cada vez:
 
 Formulário de referência do admin: **http://localhost:5173/pessoas/nova** — enviar vazio
 deve mostrar erros de validação **em português**. Se aparecerem em inglês, o
-`src/lib/validacao.ts` não foi importado no `main.tsx`.
+`src/lib/validation.ts` não foi importado no `main.tsx`.
 
 Está pronto quando os quatro respondem.
 
