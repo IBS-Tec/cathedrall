@@ -1,21 +1,21 @@
 ---
 import "../styles/global.css";
-import Cabecalho from "../components/Cabecalho.astro";
-import Rodape from "../components/Rodape.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
 import { cms } from "../lib/directus";
 
 interface Props {
-  titulo: string;
-  descricao?: string;
+  title: string;
+  description?: string;
 }
 
-const { titulo, descricao } = Astro.props;
+const { title, description } = Astro.props;
 
 // Buscado em tempo de build, uma vez por página. O site publicado não fala com o CMS.
 const config = await cms.configuracao();
 
 const nome = config.nome_igreja ?? "Igreja Bíblica Semear — Cristo Redentor";
-const tituloCompleto = titulo === nome ? titulo : `${titulo} · ${nome}`;
+const fullTitle = title === nome ? title : `${title} · ${nome}`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
@@ -27,11 +27,11 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href={canonical} />
 
-    <title>{tituloCompleto}</title>
-    {descricao && <meta name="description" content={descricao} />}
+    <title>{fullTitle}</title>
+    {description && <meta name="description" content={description} />}
 
     <meta property="og:site_name" content={nome} />
-    <meta property="og:title" content={tituloCompleto} />
+    <meta property="og:title" content={fullTitle} />
     <meta property="og:url" content={canonical} />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pt_BR" />
@@ -45,12 +45,12 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       Pular para o conteúdo
     </a>
 
-    <Cabecalho />
+    <Header />
 
     <main id="conteudo">
       <slot />
     </main>
 
-    <Rodape config={config} />
+    <Footer config={config} />
   </body>
 </html>

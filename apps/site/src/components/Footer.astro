@@ -1,18 +1,18 @@
 ---
-import { enderecoCompleto, type Configuracao } from "../lib/directus";
+import { fullAddress, type Configuracao } from "../lib/directus";
 
 interface Props {
   config: Configuracao;
 }
 
 const { config } = Astro.props;
-const endereco = enderecoCompleto(config);
+const endereco = fullAddress(config);
 
-const redes = [
-  { nome: "Instagram", url: config.instagram },
-  { nome: "Facebook", url: config.facebook },
-  { nome: "YouTube", url: config.youtube },
-].filter((r) => r.url);
+const socialLinks = [
+  { name: "Instagram", url: config.instagram },
+  { name: "Facebook", url: config.facebook },
+  { name: "YouTube", url: config.youtube },
+].filter((link) => link.url);
 ---
 
 <footer class="mt-24 border-t border-neutral-200 bg-neutral-50">
@@ -70,12 +70,12 @@ const redes = [
       </ul>
 
       {
-        redes.length > 0 && (
+        socialLinks.length > 0 && (
           <ul class="mt-4 flex gap-4">
-            {redes.map((r) => (
+            {socialLinks.map((link) => (
               <li>
-                <a class="underline underline-offset-4" href={r.url} target="_blank" rel="noopener">
-                  {r.nome}
+                <a class="underline underline-offset-4" href={link.url} target="_blank" rel="noopener">
+                  {link.name}
                 </a>
               </li>
             ))}
