@@ -183,6 +183,32 @@ public sealed class LoggingBehaviorTests
         Assert.Equal("CathedrAll.Kernel.Application.Pipeline", Assert.Single(factory.Categories));
     }
 
+    [Fact]
+    public async Task Cancelamento_deve_registrar_information_e_nao_incidente()
+    {
+        List<LogRecord> records = [];
+
+        using ServiceProvider provider = Scenario.Build(services =>
+        {
+            services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new CancelingHandler());
+        });
+
+        using IServiceScope scope = provider.CreateScope();
+
+        ISender sender = Scenario.SenderFrom(scope);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            sender.SendAsync<FakeRequest, string>(new FakeRequest(Secret), CancellationToken.None));
+
+        LogRecord record = Assert.Single(records);
+
+        Assert.Equal(LogLevel.Information, record.Level);
+        Assert.Contains("canceled", record.Message, StringComparison.Ordinal);
+        AssertNoLeak(records);
+    }
+
     private static void AssertNoLeak(List<LogRecord> records) =>
         Assert.All(records, record =>
         {

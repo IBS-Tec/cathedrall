@@ -8,6 +8,8 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddKernelApplication();
 builder.Services.AddLoggingBehavior();
 
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = context =>
         context.ProblemDetails.Extensions["traceId"] =
@@ -20,6 +22,8 @@ builder.Services.AddHealthChecks()
         timeout: TimeSpan.FromSeconds(3));
 
 WebApplication app = builder.Build();
+
+app.UseExceptionHandler();
 
 app.UseStatusCodePages();
 
