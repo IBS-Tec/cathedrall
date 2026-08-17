@@ -2,26 +2,26 @@ namespace CathedrAll.Kernel.Domain.Tests;
 
 public sealed class ResultTests
 {
-    private static readonly Error QualquerErro = Error.NotFound("Qualquer.Erro", "Qualquer erro de teste");
+    private static readonly Error AnyError = Error.NotFound("Test.AnyError", "Qualquer erro de teste");
 
     [Fact]
     public void Sucesso_nao_deve_ter_erro()
     {
-        var resultado = Result.Success();
+        var result = Result.Success();
 
-        Assert.True(resultado.IsSuccess);
-        Assert.False(resultado.IsFailure);
-        Assert.Equal(Error.None, resultado.Error);
+        Assert.True(result.IsSuccess);
+        Assert.False(result.IsFailure);
+        Assert.Equal(Error.None, result.Error);
     }
 
     [Fact]
     public void Falha_deve_ter_erro()
     {
-        var resultado = Result.Failure(QualquerErro);
+        var result = Result.Failure(AnyError);
 
-        Assert.False(resultado.IsSuccess);
-        Assert.True(resultado.IsFailure);
-        Assert.Equal(QualquerErro, resultado.Error);
+        Assert.False(result.IsSuccess);
+        Assert.True(result.IsFailure);
+        Assert.Equal(AnyError, result.Error);
     }
 
     [Fact]
@@ -31,27 +31,27 @@ public sealed class ResultTests
     [Fact]
     public void Ler_valor_de_falha_deve_lancar_excecao()
     {
-        var resultado = Result.Failure<string>(QualquerErro);
+        var result = Result.Failure<string>(AnyError);
 
-        Assert.Throws<InvalidOperationException>(() => resultado.Value);
+        Assert.Throws<InvalidOperationException>(() => result.Value);
     }
 
     [Fact]
     public void Valor_convertido_implicitamente_deve_ser_sucesso()
     {
-        Result<string> resultado = "Qualquer valor";
+        Result<string> result = "Qualquer valor";
 
-        Assert.True(resultado.IsSuccess);
-        Assert.Equal("Qualquer valor", resultado.Value);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Qualquer valor", result.Value);
     }
 
     [Fact]
     public void Erro_convertido_implicitamente_deve_ser_falha()
     {
-        Result<string> resultado = QualquerErro;
+        Result<string> result = AnyError;
 
-        Assert.False(resultado.IsSuccess);
-        Assert.True(resultado.IsFailure);
-        Assert.Equal(QualquerErro, resultado.Error);
+        Assert.False(result.IsSuccess);
+        Assert.True(result.IsFailure);
+        Assert.Equal(AnyError, result.Error);
     }
 }

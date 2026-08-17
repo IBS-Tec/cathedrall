@@ -6,191 +6,217 @@ namespace CathedrAll.Kernel.Application.Tests;
 
 public sealed class LoggingBehaviorTests
 {
-    private const string Segredo = "cpf-do-membro";
+    private const string Secret = "cpf-do-membro";
 
     [Fact]
     public async Task Sucesso_deve_registrar_uma_entrada_de_information_com_o_nome_da_requisicao()
     {
-        List<RegistroDeLog> registros = [];
-        List<string> rastro = [];
+        List<LogRecord> records = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<ILoggerFactory>(new FabricaDeLogFalsa(registros));
-            servicos.AddLoggingBehavior();
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerFalso(rastro));
+            services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new FakeHandler(trace));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        RegistroDeLog registro = Assert.Single(registros);
+        LogRecord record = Assert.Single(records);
 
-        Assert.Equal(LogLevel.Information, registro.Nivel);
-        Assert.Contains(nameof(RequisicaoFalsa), registro.Mensagem, StringComparison.Ordinal);
-        Assert.Contains("sucesso", registro.Mensagem, StringComparison.Ordinal);
-        Assert.Null(registro.Excecao);
+        Assert.Equal(LogLevel.Information, record.Level);
+        Assert.Contains(nameof(FakeRequest), record.Message, StringComparison.Ordinal);
+        Assert.Contains("success", record.Message, StringComparison.Ordinal);
+        Assert.Null(record.Exception);
     }
 
     [Fact]
     public async Task Nao_deve_registrar_o_conteudo_da_requisicao()
     {
-        List<RegistroDeLog> registros = [];
-        List<string> rastro = [];
+        List<LogRecord> records = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<ILoggerFactory>(new FabricaDeLogFalsa(registros));
-            servicos.AddLoggingBehavior();
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerFalso(rastro));
+            services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new FakeHandler(trace));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa(Segredo), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest(Secret), CancellationToken.None);
 
-        GarantirQueNaoVazou(registros);
+        AssertNoLeak(records);
     }
 
     [Fact]
     public async Task Excecao_deve_subir_e_ainda_assim_registrar_o_desfecho()
     {
-        List<RegistroDeLog> registros = [];
+        List<LogRecord> records = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<ILoggerFactory>(new FabricaDeLogFalsa(registros));
-            servicos.AddLoggingBehavior();
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerQueLanca());
+            services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new ThrowingHandler());
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        ISender sender = Cenario.SenderDoEscopo(escopo);
+        ISender sender = Scenario.SenderFrom(scope);
 
         await Assert.ThrowsAsync<TimeoutException>(() =>
-            sender.SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa(Segredo), CancellationToken.None));
+            sender.SendAsync<FakeRequest, string>(new FakeRequest(Secret), CancellationToken.None));
 
-        RegistroDeLog registro = Assert.Single(registros);
+        LogRecord record = Assert.Single(records);
 
-        Assert.Equal(LogLevel.Error, registro.Nivel);
-        Assert.Contains("exceção", registro.Mensagem, StringComparison.Ordinal);
-        Assert.DoesNotContain(HandlerQueLanca.MensagemDeFalha, registro.Mensagem, StringComparison.Ordinal);
-        Assert.Null(registro.Excecao);
-        GarantirQueNaoVazou(registros);
+        Assert.Equal(LogLevel.Error, record.Level);
+        Assert.Contains("exception", record.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(ThrowingHandler.FailureMessage, record.Message, StringComparison.Ordinal);
+        Assert.Null(record.Exception);
+        AssertNoLeak(records);
     }
 
     [Fact]
     public async Task Falha_de_negocio_deve_registrar_warning_com_o_codigo_do_erro()
     {
-        List<RegistroDeLog> registros = [];
+        List<LogRecord> records = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<ILoggerFactory>(new FabricaDeLogFalsa(registros));
-            servicos.AddLoggingBehavior();
-            servicos.AddSingleton<IRequestHandler<ComandoQueFalha, Result<string>>>(new HandlerQueRecusa());
+            services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeResultCommand, Result<string>>>(new RejectingHandler());
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        Result<string> resultado = await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<ComandoQueFalha, Result<string>>(new ComandoQueFalha(Segredo), CancellationToken.None);
+        Result<string> result = await Scenario.SenderFrom(scope)
+            .SendAsync<FakeResultCommand, Result<string>>(new FakeResultCommand(Secret), CancellationToken.None);
 
-        RegistroDeLog registro = Assert.Single(registros);
-        KeyValuePair<string, object?> codigo = Assert.Single(registro.Estado, campo => campo.Key == "Codigo");
+        LogRecord record = Assert.Single(records);
+        KeyValuePair<string, object?> code = Assert.Single(record.State, field => field.Key == "ErrorCode");
 
-        Assert.True(resultado.IsFailure);
-        Assert.Equal(LogLevel.Warning, registro.Nivel);
-        Assert.Equal(HandlerQueRecusa.Recusa.Code, codigo.Value);
+        Assert.True(result.IsFailure);
+        Assert.Equal(LogLevel.Warning, record.Level);
+        Assert.Equal(RejectingHandler.Rejection.Code, code.Value);
         Assert.DoesNotContain(
-            HandlerQueRecusa.Recusa.Description,
-            registro.Mensagem,
+            RejectingHandler.Rejection.Description,
+            record.Message,
             StringComparison.Ordinal);
-        GarantirQueNaoVazou(registros);
+        AssertNoLeak(records);
     }
 
     [Fact]
     public async Task Result_bem_sucedido_deve_registrar_information()
     {
-        List<RegistroDeLog> registros = [];
+        List<LogRecord> records = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<ILoggerFactory>(new FabricaDeLogFalsa(registros));
-            servicos.AddLoggingBehavior();
-            servicos.AddSingleton<IRequestHandler<ComandoQueFalha, Result<string>>>(new HandlerQueAceita());
+            services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeResultCommand, Result<string>>>(new AcceptingHandler());
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<ComandoQueFalha, Result<string>>(new ComandoQueFalha("qualquer"), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeResultCommand, Result<string>>(new FakeResultCommand("qualquer"), CancellationToken.None);
 
-        RegistroDeLog registro = Assert.Single(registros);
+        LogRecord record = Assert.Single(records);
 
-        Assert.Equal(LogLevel.Information, registro.Nivel);
-        Assert.DoesNotContain("Codigo", registro.Mensagem, StringComparison.Ordinal);
+        Assert.Equal(LogLevel.Information, record.Level);
+        Assert.DoesNotContain("ErrorCode", record.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Deve_registrar_a_duracao_como_campo_estruturado()
     {
-        List<RegistroDeLog> registros = [];
-        List<string> rastro = [];
+        List<LogRecord> records = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<ILoggerFactory>(new FabricaDeLogFalsa(registros));
-            servicos.AddLoggingBehavior();
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerFalso(rastro));
+            services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new FakeHandler(trace));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        RegistroDeLog registro = Assert.Single(registros);
-        KeyValuePair<string, object?> duracao =
-            Assert.Single(registro.Estado, campo => campo.Key == "DuracaoMs");
+        LogRecord record = Assert.Single(records);
+        KeyValuePair<string, object?> duration =
+            Assert.Single(record.State, field => field.Key == "DurationMs");
 
-        Assert.True(Assert.IsType<double>(duracao.Value) >= 0);
+        Assert.True(Assert.IsType<double>(duration.Value) >= 0);
     }
 
     [Fact]
     public async Task Deve_usar_uma_categoria_fixa()
     {
-        List<RegistroDeLog> registros = [];
-        List<string> rastro = [];
-        using FabricaDeLogFalsa fabrica = new(registros);
+        List<LogRecord> records = [];
+        List<string> trace = [];
+        using FakeLoggerFactory factory = new(records);
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<ILoggerFactory>(fabrica);
-            servicos.AddLoggingBehavior();
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerFalso(rastro));
+            services.AddSingleton<ILoggerFactory>(factory);
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new FakeHandler(trace));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        Assert.Equal("CathedrAll.Kernel.Application.Pipeline", Assert.Single(fabrica.Categorias));
+        Assert.Equal("CathedrAll.Kernel.Application.Pipeline", Assert.Single(factory.Categories));
     }
 
-    private static void GarantirQueNaoVazou(List<RegistroDeLog> registros) =>
-        Assert.All(registros, registro =>
+    [Fact]
+    public async Task Cancelamento_deve_registrar_information_e_nao_incidente()
+    {
+        List<LogRecord> records = [];
+
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            Assert.DoesNotContain(Segredo, registro.Mensagem, StringComparison.Ordinal);
-            Assert.All(registro.Estado, campo =>
+            services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
+            services.AddLoggingBehavior();
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new CancelingHandler());
+        });
+
+        using IServiceScope scope = provider.CreateScope();
+
+        ISender sender = Scenario.SenderFrom(scope);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            sender.SendAsync<FakeRequest, string>(new FakeRequest(Secret), CancellationToken.None));
+
+        LogRecord record = Assert.Single(records);
+
+        Assert.Equal(LogLevel.Information, record.Level);
+        Assert.Contains("canceled", record.Message, StringComparison.Ordinal);
+        AssertNoLeak(records);
+    }
+
+    private static void AssertNoLeak(List<LogRecord> records) =>
+        Assert.All(records, record =>
+        {
+            Assert.DoesNotContain(Secret, record.Message, StringComparison.Ordinal);
+            Assert.All(record.State, field =>
                 Assert.DoesNotContain(
-                    Segredo,
-                    campo.Value?.ToString() ?? string.Empty,
+                    Secret,
+                    field.Value?.ToString() ?? string.Empty,
                     StringComparison.Ordinal));
         });
 }

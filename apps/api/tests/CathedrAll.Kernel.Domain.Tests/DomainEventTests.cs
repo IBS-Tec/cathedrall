@@ -5,22 +5,22 @@ public sealed class DomainEventTests
     [Fact]
     public void O_id_do_evento_deve_ser_o_mesmo_em_leituras_sucessivas()
     {
-        var evento = new EventoFalso("qualquer");
+        var domainEvent = new FakeEvent("any");
 
-        Guid primeiraLeitura = evento.Id;
-        Guid segundaLeitura = evento.Id;
+        Guid firstRead = domainEvent.Id;
+        Guid secondRead = domainEvent.Id;
 
-        Assert.Equal(primeiraLeitura, segundaLeitura);
+        Assert.Equal(firstRead, secondRead);
     }
 
     [Fact]
     public void Eventos_distintos_devem_ter_ids_distintos()
     {
-        var primeiro = new EventoFalso("qualquer");
-        var segundo = new EventoFalso("qualquer");
+        var first = new FakeEvent("any");
+        var second = new FakeEvent("any");
 
-        Assert.NotEqual(primeiro.Id, segundo.Id);
+        Assert.NotEqual(first.Id, second.Id);
     }
 
-    private sealed record EventoFalso(string Nome) : DomainEvent;
+    private sealed record FakeEvent(string Name) : DomainEvent;
 }

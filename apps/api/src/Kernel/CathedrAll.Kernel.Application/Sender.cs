@@ -18,8 +18,8 @@ internal sealed class Sender(IServiceProvider serviceProvider) : ISender
         foreach (IPipelineBehavior<TRequest, TResponse> behavior in
             serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>().Reverse())
         {
-            RequestHandlerDelegate<TResponse> interno = next;
-            next = () => behavior.HandleAsync(request, interno, cancellationToken);
+            RequestHandlerDelegate<TResponse> inner = next;
+            next = () => behavior.HandleAsync(request, inner, cancellationToken);
         }
 
         return next();

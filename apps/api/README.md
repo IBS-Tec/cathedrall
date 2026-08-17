@@ -2,13 +2,16 @@
 
 .NET 10, ASP.NET Core, Minimal API. Domínio: `api.ibscristo.com.br`.
 
-> **Estado: host, kernel e mediator.** Existem o host com `/health`, a configuração de
-> build, o kernel de domínio — `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`,
-> `DomainEvent` — e o mediator com um único behavior, o de log. Tudo descrito em
-> [`src/Kernel/README.md`](src/Kernel/README.md). Nenhum módulo, nenhum acesso a banco,
-> nenhuma autenticação, nenhum handler. A API está sendo reconstruída do zero, em passos
-> pequenos. Este README descreve só o que já existe — se algo não estiver aqui, não foi
-> construído ainda.
+> **Estado: host, kernel, mediator, formato de erro e o anel de transação.** Existem o host
+> com `/health`, a configuração de build, o kernel de domínio — `Result`, `Error`,
+> `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` —, o mediator com dois behaviors, o de
+> log e o de transação, e os dois pontos de conversão da fronteira HTTP descritos em
+> [Formato de erro](#formato-de-erro). O kernel está em
+> [`src/Kernel/README.md`](src/Kernel/README.md). **O anel de transação existe e nada o
+> registra:** ele depende de um `DbContext`, e não há módulo para fornecê-lo. Nenhum módulo,
+> nenhum banco alcançado pela aplicação, nenhuma migration, nenhuma autenticação, nenhum
+> handler de requisição. A API está sendo reconstruída do zero, em passos pequenos. Este
+> README descreve só o que já existe — se algo não estiver aqui, não foi construído ainda.
 
 ## Comandos
 
@@ -72,20 +75,118 @@ Para começar, copie o exemplo e preencha a senha — a mesma `APP_DB_PASSWORD` 
 cp src/Bootstrapper/CathedrAll.Api/appsettings.Development.json{.example,}
 ```
 
+## Formato de erro
+
+Todo erro da API sai em `application/problem+json` (RFC 9457). O porquê de cada campo está no
+[ADR-0014](../../docs/adr/0014-problem-details-como-formato-unico-de-erro.md).
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Pessoa não encontrada.",
+  "code": "Pessoa.NotFound",
+  "traceId": "00-225d4de6e680a921a8b8bbefad510b66-d494e8ff06a97bca-00"
+}
+```
+
+O status vem do `ErrorType`: `Validation` 400, `NotFound` 404, `Conflict` 409, `Failure` 500.
+
+**Duas regras para quem escreve a SPA.** As duas quebram em silêncio se forem ignoradas —
+nada no compilador as protege:
+
+1. **Ramifique em `code`, nunca em `detail`.** `code` é contrato de API; `detail` é texto que
+   a secretaria pode pedir para reescrever a qualquer momento.
+2. **Nunca renderize `title`.** Ele é genérico por status e fica em inglês de propósito. O
+   texto para o usuário é o `detail`.
+
+Quatro peças no `Program.cs` produzem esse formato, e as quatro são necessárias:
+
+| Peça | Cobre |
+| --- | --- |
+| `ErrorResults.ToProblem()` | a falha de um `Result` nosso |
+| `GlobalExceptionHandler` | a exceção não capturada, e o cancelamento |
+| `AddProblemDetails` + `CustomizeProblemDetails` | o `traceId`, em todo problem+json |
+| `UseStatusCodePages` | os erros do framework: rota inexistente, método não permitido |
+
+A terceira é a menos óbvia e a mais fácil de perder num refactor. **`AddProblemDetails`
+sozinho não faz nada aparecer:** ele apenas registra o `IProblemDetailsService`, e um 404 de
+roteamento não invoca esse serviço — responde com corpo vazio e sem content-type. Há teste
+batendo numa rota inexistente por HTTP de verdade justamente para que remover essa linha
+fique vermelho.
+
+O `traceId` sai do `Activity.Current?.Id`, com o `TraceIdentifier` como reserva, e existe para
+juntar log e resposta: é por ele que um erro relatado pela secretaria acha a requisição no
+log. Ele é acrescentado uma vez, na customização — não no mapeador. Se fosse no mapeador, só
+os nossos erros o teriam.
+
+### Exceção não capturada e cancelamento
+
+O `GlobalExceptionHandler` tem três caminhos, e a ordem entre eles é o desenho:
+
+| Situação | O que faz |
+| --- | --- |
+| `RequestAborted` cancelado | log de rotina, sem corpo. Não há ninguém do outro lado do socket |
+| `Response.HasStarted` | log de erro e devolve `false`: não dá mais para trocar o status |
+| qualquer outra exceção | log de erro **com stack trace**, e 500 em problem+json |
+
+**O teste do cancelamento é o token, não o tipo da exceção.** Um timeout interno também lança
+`OperationCanceledException`, e esse **é** falha de verdade — se a classificação fosse pelo
+tipo, ela silenciaria justamente o caso que interessa. Quem distingue é o
+`RequestAborted.IsCancellationRequested`.
+
+**O 500 sai pelo mesmo `ToProblem()`.** O handler monta um
+`Error.Failure("Server.UnexpectedFailure", …)` e chama o mapeador, em vez de escrever o corpo
+por conta própria. Assim as duas respostas 500 da API — a de um `Result` que falhou e a de uma
+exceção — têm a mesma forma **por construção**. Escrever o corpo à mão aqui funcionaria hoje e
+divergiria no primeiro ajuste feito só de um lado.
+
+O `exception.Message` **nunca** entra no corpo. Há teste que joga uma string reconhecível na
+exceção e varre a resposta inteira procurando por ela: é a única falha desta classe que não se
+anuncia, porque vazar detalhe não deixa a resposta lenta nem errada, só mais informativa para
+quem não devia.
+
+**Um custo declarado:** quando o cliente desiste, o handler registra em `Information` mesmo se
+a exceção era um bug de verdade que por acaso coincidiu com a desconexão. A exceção vai para o
+log junto, então o stack trace não se perde, mas **nenhum alerta dispara**. É o preço de não
+tratar cada aba fechada como incidente, e o caminho ao contrário — `Error` em todo
+cancelamento — treina o time a ignorar o canal.
+
+### O que os testes não cobrem
+
+**O caminho do 500 é verificado no handler, não pelo middleware.** Os testes chamam
+`TryHandleAsync` direto, com um `DefaultHttpContext`; ninguém sobe a aplicação e provoca uma
+exceção de verdade, porque não existe endpoint que lance. O `UseExceptionHandler` estar na
+ordem certa do pipeline é hoje conferido a olho.
+
+Vale saber de uma armadilha para quando esse teste existir: em Development o `WebApplication`
+põe o `DeveloperExceptionPage` na frente do pipeline, e o `WebApplicationFactory` sobe em
+Development por padrão — o teste veria HTML em vez de problem+json. A saída é fixar
+`UseEnvironment("Production")`.
+
+**O campo `code` na rede** é verificado na serialização — o teste do handler lê o JSON escrito
+no corpo — mas não através de um endpoint real, porque nenhum devolve `Result` ainda. O
+primeiro módulo é quem fecha essa lacuna.
+
 ## Estrutura
 
 ```
 src/
   Bootstrapper/
     CathedrAll.Api/                       host; sobe a aplicação, registra o
-                                          mediator e o pipeline, mapeia /health
+                                          mediator e o pipeline, mapeia /health,
+                                          converte Error em ProblemDetails e
+                                          trata a exceção não capturada
   Kernel/
     CathedrAll.Kernel.Domain/             Result, Error, ErrorType, Entity
     CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior
+    CathedrAll.Kernel.Infrastructure/     TransactionBehavior
 tests/
-  CathedrAll.Api.Tests/                   testes de integração do host
+  CathedrAll.Api.Tests/                   testes do host: integração e mapeamento
   CathedrAll.Kernel.Domain.Tests/         testes unitários do kernel de domínio
   CathedrAll.Kernel.Application.Tests/    testes unitários do mediator
+  CathedrAll.Kernel.Infrastructure.Tests/ testes do anel de transação, sobre SQLite
 ```
 
 O kernel compartilhado tem [README próprio](src/Kernel/README.md), com a regra que decide
@@ -103,16 +204,29 @@ A segunda linha é opcional por desenho — **a ordem das linhas é a ordem dos 
 escondê-la dentro do registro do mediator tiraria do `Program.cs` a única visão que existe
 do pipeline inteiro. O porquê de cada anel ficar onde fica está no README do kernel.
 
+**Falta aqui uma terceira linha, e ela chega com o primeiro módulo:** o registro do anel de
+transação, que precisa do `DbContext` do módulo para existir. O behavior já está escrito em
+`Kernel.Infrastructure`; quem o registra é o `Program.cs`, depois do anel de log, com a
+subclasse de três linhas que o [README do kernel](src/Kernel/README.md) mostra.
+
 **Cada projeto de origem tem o próprio projeto de teste.** Um projeto de teste único
 precisaria referenciar todos os módulos, e seria o único assembly onde tipos de módulos
 diferentes coexistem — daria para escrever um teste que prova algo que o código de
 produção não consegue fazer. Além disso os tipos de teste são diferentes: os do kernel são
 unitários e rodam em menos de meio segundo, enquanto os do host sobem a aplicação inteira.
 
-Os testes **do host** sobem a aplicação inteira em memória, com `WebApplicationFactory`, e
-batem nos endpoints por HTTP. Sem mock e sem porta de rede: é o `Program.cs` de verdade que
-responde. Para um host desta espessura, testar por dentro não valeria a pena — o que pode
-quebrar é justamente o encanamento entre rota, middleware e serviço registrado.
+Os testes **do host** são de dois tipos, e a diferença não é estilo. A maioria sobe a
+aplicação inteira em memória, com `WebApplicationFactory`, e bate nos endpoints por HTTP —
+sem mock e sem porta de rede, é o `Program.cs` de verdade que responde. Para um host desta
+espessura, testar por dentro não valeria a pena: o que pode quebrar é justamente o
+encanamento entre rota, middleware e serviço registrado, e é o que só aparece subindo tudo.
+
+As exceções são o `ErrorResultsTests` e o `GlobalExceptionHandlerTests`, os dois unitários: um
+chama `ToProblem()` e inspeciona o `ProblemHttpResult`, o outro chama `TryHandleAsync` com um
+`DefaultHttpContext`. A tabela `ErrorType` → status é função pura, e o handler precisa de
+estados que uma requisição de verdade não produz sob comando — cliente desistindo, resposta já
+iniciada. Subir a aplicação para isso tornaria a falha mais lenta e menos legível. **O preço
+está declarado** em [O que os testes não cobrem](#o-que-os-testes-não-cobrem).
 
 Os projetos se chamam `.Tests` de propósito: o `Directory.Build.props` reconhece o sufixo e
 relaxa as regras que brigam com teste. A localização em `tests/` é livre — a condição é
@@ -164,6 +278,12 @@ cada save.
 Dado de membro de igreja é dado pessoal sensível (LGPD). Nada disso é backlog — vem antes
 do primeiro endpoint que toque em `Pessoa`:
 
+- [x] **Transação por requisição** — o anel existe; falta um módulo registrá-lo
 - [ ] **Audit log** por `SaveChangesInterceptor`, em tabela append-only
 - [ ] **Soft delete** com filtro global de consulta
 - [ ] **RBAC com escopo** — líder enxerga apenas o próprio departamento
+
+Os três que faltam penduram no `DbContext`, e a forma de persistência está decidida no
+[ADR-0015](../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md): um `DbContext` por
+módulo, com schema próprio. A auditoria fica **dentro** da transação, porque pendura no
+`SaveChanges` — é o anel de transação que garante isso, e é por isso que ele vem primeiro.

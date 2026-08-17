@@ -5,41 +5,41 @@ public sealed class AggregateRootTests
     [Fact]
     public void Agregado_recem_criado_nao_deve_ter_eventos()
     {
-        var agregado = new AgregadoFalso(Guid.CreateVersion7());
+        var aggregate = new FakeAggregate(Guid.CreateVersion7());
 
-        Assert.Empty(agregado.DomainEvents);
+        Assert.Empty(aggregate.DomainEvents);
     }
 
     [Fact]
     public void PopDomainEvents_deve_devolver_os_eventos_na_ordem_de_registro()
     {
-        var agregado = new AgregadoFalso(Guid.CreateVersion7());
-        var primeiro = new EventoFalso("primeiro");
-        var segundo = new EventoFalso("segundo");
-        IDomainEvent[] esperados = [primeiro, segundo];
+        var aggregate = new FakeAggregate(Guid.CreateVersion7());
+        var first = new FakeEvent("first");
+        var second = new FakeEvent("second");
+        IDomainEvent[] expected = [first, second];
 
-        agregado.Registrar(primeiro);
-        agregado.Registrar(segundo);
+        aggregate.Raise(first);
+        aggregate.Raise(second);
 
-        Assert.Equal(esperados, agregado.PopDomainEvents());
+        Assert.Equal(expected, aggregate.PopDomainEvents());
     }
 
     [Fact]
     public void PopDomainEvents_deve_esvaziar_o_agregado()
     {
-        var agregado = new AgregadoFalso(Guid.CreateVersion7());
-        agregado.Registrar(new EventoFalso("qualquer"));
+        var aggregate = new FakeAggregate(Guid.CreateVersion7());
+        aggregate.Raise(new FakeEvent("any"));
 
-        agregado.PopDomainEvents();
+        aggregate.PopDomainEvents();
 
-        Assert.Empty(agregado.DomainEvents);
-        Assert.Empty(agregado.PopDomainEvents());
+        Assert.Empty(aggregate.DomainEvents);
+        Assert.Empty(aggregate.PopDomainEvents());
     }
 
-    private sealed class AgregadoFalso(Guid id) : AggregateRoot<Guid>(id)
+    private sealed class FakeAggregate(Guid id) : AggregateRoot<Guid>(id)
     {
-        public void Registrar(IDomainEvent evento) => AddDomainEvent(evento);
+        public void Raise(IDomainEvent domainEvent) => AddDomainEvent(domainEvent);
     }
 
-    private sealed record EventoFalso(string Nome) : DomainEvent;
+    private sealed record FakeEvent(string Name) : DomainEvent;
 }

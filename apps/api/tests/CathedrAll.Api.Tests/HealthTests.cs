@@ -3,65 +3,65 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace CathedrAll.Api.Tests;
 
-public sealed class HealthTests(WebApplicationFactory<Program> fabrica)
+public sealed class HealthTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
 {
-    private const string BancoInacessivel =
+    private const string UnreachableDatabase =
         "Host=127.0.0.1;Port=1;Database=x;Username=x;Password=x;Timeout=1";
 
     [Fact]
     public async Task Health_responde_200_com_corpo_Healthy()
     {
-        HttpResponseMessage resposta = await Chamar("/health", BancoInacessivel);
+        HttpResponseMessage response = await Call("/health", UnreachableDatabase);
 
-        Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(
             "Healthy",
-            await resposta.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Health_ready_responde_503_quando_o_banco_esta_inacessivel()
     {
-        HttpResponseMessage resposta = await Chamar("/health/ready", BancoInacessivel);
+        HttpResponseMessage response = await Call("/health/ready", UnreachableDatabase);
 
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, resposta.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         Assert.Equal(
             "Unhealthy",
-            await resposta.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Health_ready_responde_503_quando_a_connection_string_nao_existe()
     {
-        HttpResponseMessage resposta = await Chamar("/health/ready", conexao: null);
+        HttpResponseMessage response = await Call("/health/ready", connectionString: null);
 
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, resposta.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
 
     [Fact]
     public async Task Health_nao_expoe_detalhe_de_dependencia_no_corpo()
     {
-        HttpResponseMessage resposta = await Chamar("/health/ready", BancoInacessivel);
+        HttpResponseMessage response = await Call("/health/ready", UnreachableDatabase);
 
-        string corpo =
-            await resposta.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        string body =
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
-        Assert.DoesNotContain("postgres", corpo, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("127.0.0.1", corpo, StringComparison.Ordinal);
+        Assert.DoesNotContain("postgres", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("127.0.0.1", body, StringComparison.Ordinal);
     }
 
-    private async Task<HttpResponseMessage> Chamar(string rota, string? conexao)
+    private async Task<HttpResponseMessage> Call(string route, string? connectionString)
     {
-        using WebApplicationFactory<Program> comConfiguracao = fabrica.WithWebHostBuilder(
-            construtor => construtor.UseSetting(
-                $"ConnectionStrings:{PostgresHealthCheck.NomeDaConexao}",
-                conexao));
+        using WebApplicationFactory<Program> configured = factory.WithWebHostBuilder(
+            builder => builder.UseSetting(
+                $"ConnectionStrings:{PostgresHealthCheck.ConnectionName}",
+                connectionString));
 
-        HttpClient cliente = comConfiguracao.CreateClient();
+        HttpClient client = configured.CreateClient();
 
-        return await cliente.GetAsync(
-            new Uri(rota, UriKind.Relative),
+        return await client.GetAsync(
+            new Uri(route, UriKind.Relative),
             TestContext.Current.CancellationToken);
     }
 }

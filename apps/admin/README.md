@@ -66,11 +66,11 @@ React Hook Form + Zod, sobre os componentes `Field` do shadcn.
 
 - **Schema mora no módulo**, em `modules/<modulo>/schemas.ts`. Não existe pasta `schemas/`
   global — mesma lógica de fatia vertical do backend.
-- **Use `CampoTexto`** (`components/campo-texto.tsx`) em vez de montar
+- **Use `TextField`** (`components/text-field.tsx`) em vez de montar
   `Controller` + `Field` + `Input` + `FieldError` à mão. O padrão cru repete `field.name`
   em três lugares e é onde se esquece o `htmlFor` e o `aria-invalid`.
 - **Mensagens em português são automáticas.** O locale `pt` do Zod é configurado uma vez
-  em `lib/validacao.ts`, importado no `main.tsx`. Só escreva mensagem manual quando ela
+  em `lib/validation.ts`, importado no `main.tsx`. Só escreva mensagem manual quando ela
   explicar uma regra de negócio ("Informe o telefone com DDD"), não para traduzir.
 - **O Zod aqui valida experiência de uso, não regra de negócio.** A API valida de novo,
   sempre, e é ela quem decide. Qualquer pessoa com o DevTools aberto pula esta validação.

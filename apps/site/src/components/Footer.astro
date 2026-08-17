@@ -1,0 +1,91 @@
+---
+import { fullAddress, type Configuracao } from "../lib/directus";
+
+interface Props {
+  config: Configuracao;
+}
+
+const { config } = Astro.props;
+const endereco = fullAddress(config);
+
+const socialLinks = [
+  { name: "Instagram", url: config.instagram },
+  { name: "Facebook", url: config.facebook },
+  { name: "YouTube", url: config.youtube },
+].filter((link) => link.url);
+---
+
+<footer class="mt-24 border-t border-neutral-200 bg-neutral-50">
+  <div class="mx-auto grid max-w-5xl gap-8 px-6 py-12 sm:grid-cols-2">
+    <div>
+      <h2 class="text-sm font-semibold tracking-wide uppercase">Onde estamos</h2>
+      {
+        endereco ? (
+          <p class="mt-3 text-neutral-700">{endereco}</p>
+        ) : (
+          <p class="mt-3 text-neutral-400 italic">Endereço não cadastrado no CMS.</p>
+        )
+      }
+      {
+        config.google_maps_url && (
+          <a
+            href={config.google_maps_url}
+            class="mt-2 inline-block underline underline-offset-4"
+            target="_blank"
+            rel="noopener"
+          >
+            Ver no mapa
+          </a>
+        )
+      }
+    </div>
+
+    <div>
+      <h2 class="text-sm font-semibold tracking-wide uppercase">Contato</h2>
+      <ul class="mt-3 space-y-1 text-neutral-700">
+        {config.telefone && <li>{config.telefone}</li>}
+        {
+          config.whatsapp && (
+            <li>
+              <a
+                class="underline underline-offset-4"
+                href={`https://wa.me/${config.whatsapp}`}
+                target="_blank"
+                rel="noopener"
+              >
+                Falar no WhatsApp
+              </a>
+            </li>
+          )
+        }
+        {
+          config.email && (
+            <li>
+              <a class="underline underline-offset-4" href={`mailto:${config.email}`}>
+                {config.email}
+              </a>
+            </li>
+          )
+        }
+      </ul>
+
+      {
+        socialLinks.length > 0 && (
+          <ul class="mt-4 flex gap-4">
+            {socialLinks.map((link) => (
+              <li>
+                <a class="underline underline-offset-4" href={link.url} target="_blank" rel="noopener">
+                  {link.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </div>
+  </div>
+
+  <div class="border-t border-neutral-200 px-6 py-4 text-center text-sm text-neutral-500">
+    {config.nome_igreja ?? "Igreja Bíblica Semear — Cristo Redentor"}
+  </div>
+</footer>

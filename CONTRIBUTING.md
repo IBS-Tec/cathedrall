@@ -91,8 +91,8 @@ Um PR só entra quando **todas** valem:
 - [ ] Nada de `fetch` escrito à mão na SPA — só o cliente de `packages/api-client`.
 - [ ] Nada de pasta genérica por tipo técnico (`Services/`, `DTOs/`, `Repositories/`).
   Vertical slice por módulo, dos dois lados.
-- [ ] Domínio e UI em português; infraestrutura e framework em inglês. Sem mistura dentro
-  da mesma camada.
+- [ ] Código em inglês; vocabulário de negócio, texto de UI e nome de teste em português
+  (ADR-0013). Na dúvida, inglês.
 - [ ] Nenhum segredo versionado. Só `.env.example`.
 - [ ] Se mexeu em dado de pessoa: audit log, escopo de permissão e soft delete
   contemplados. Não é backlog — é requisito de LGPD.
