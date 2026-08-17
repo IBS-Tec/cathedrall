@@ -3,22 +3,25 @@
 O kernel compartilhado do [ADR-0012](../../../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md).
 Guarda os blocos de construção que os módulos usam e **não conhece módulo nenhum**.
 
-> **Estado: o `Result`, os blocos de DDD, o mediator e um behavior.**
+> **Estado: o `Result`, os blocos de DDD, o mediator e dois behaviors.**
 > `CathedrAll.Kernel.Domain` tem `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`,
 > `DomainEvent`, `IAuditable` e `ISoftDeletable`. `CathedrAll.Kernel.Application` tem o
 > mediator — `ISender`, `IRequest`, `IRequestHandler`, `IPipelineBehavior` —, o
-> `LoggingBehavior` e o registro de DI. **O único behavior escrito é o de log:** não existe
-> validação, nem transação, nem autorização, nem `IUnitOfWork`, nem interceptor de
-> auditoria. Este README descreve só o que já está escrito.
+> `LoggingBehavior` e o registro de DI. `CathedrAll.Kernel.Infrastructure` tem o
+> `TransactionBehavior`. **Os behaviors escritos são o de log e o de transação:** não existe
+> validação, nem autorização, nem interceptor de auditoria, e nenhum módulo registra o anel
+> de transação ainda, porque não existe módulo. Este README descreve só o que já está
+> escrito.
 
-## Os dois projetos
+## Os três projetos
 
 | Projeto | Guarda | Referencia |
 | --- | --- | --- |
 | `CathedrAll.Kernel.Domain` | `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` | nada |
 | `CathedrAll.Kernel.Application` | o mediator, o contrato dos behaviors e o `LoggingBehavior` | `Kernel.Domain` |
+| `CathedrAll.Kernel.Infrastructure` | o `TransactionBehavior` | `Kernel.Application` |
 
-O ADR-0012 esboçou um `CathedrAll.Kernel` único. São dois porque a seta importa: a camada
+O ADR-0012 esboçou um `CathedrAll.Kernel` único. São vários porque a seta importa: a camada
 `Domain` de um módulo referencia apenas `Kernel.Domain`, e aí **a entidade não alcança o
 mediator nem por acidente**. Num projeto só, isso seria convenção que alguém precisa
 lembrar — exatamente o que o ADR-0012 gastou um projeto por módulo para evitar.
@@ -39,6 +42,16 @@ escreve na interface.
 `Kernel.Domain`, e igualmente fácil de conferir em revisão. Um pacote concreto neste
 projeto arrasta para dentro do kernel uma escolha que é do host, e todo módulo passa a
 herdá-la sem ter sido consultado.
+
+`Kernel.Infrastructure` **existe justamente porque essa regra é para valer.** O anel de
+transação precisa conhecer `DbContext`, e `Microsoft.EntityFrameworkCore.Relational` não é
+`*.Abstractions` — enfiá-lo no `Kernel.Application` daria a todo módulo, e ao mediator, uma
+dependência de ORM que eles não pediram. Então o pacote fica aqui, num terceiro projeto que
+só quem precisa de persistência referencia. É o mesmo movimento que separou `Domain` de
+`Application`: um projeto a mais em troca de a seta continuar apontando para um lado só.
+
+A escolha do **provider** continua sendo do host: `Relational` sabe o que é uma transação e
+uma tabela, e não sabe o que é PostgreSQL ([ADR-0015](../../../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md)).
 
 ## A regra de corte: `Result` ou exceção
 
@@ -497,7 +510,7 @@ Isso importa mais do que parece:
 | 1 | `LoggingBehavior` | **sim** | Por fora de tudo, para a duração medida ser a que o usuário esperou e para a rejeição dos anéis de dentro também virar linha de log |
 | 2 | autorização (RBAC com escopo) | não | Antes da validação: quem não pode nem ver o recurso não deve descobrir quais campos estão errados nele |
 | 3 | validação | não | Antes da transação, senão você abre transação para requisição que já ia ser rejeitada |
-| 4 | transação / `IUnitOfWork` | não | O mais interno, colado no handler, para segurar o menor trecho possível |
+| 4 | `TransactionBehavior` | **sim**, e nenhum módulo o registra ainda | O mais interno, colado no handler, para segurar o menor trecho possível |
 
 A auditoria não aparece na tabela porque **não é anel**: ela pendura no `SaveChanges`, ou
 seja, dentro da transação. É isso que a frase "transação por fora de auditoria" quer dizer.
@@ -524,8 +537,8 @@ requisição é uma query. Sem `if (request is ICommand)` dentro do behavior, se
 duplicado. Isso funciona a partir do .NET 7; antes, o container lançava em vez de pular.
 
 É o mesmo teste que matou `IEntity<TId>` mais acima: interface do kernel precisa de
-consumidor nomeado. O destas duas é o `TransactionBehavior` — e o mecanismo já tem teste,
-antes de o behavior existir.
+consumidor nomeado. O destas duas é o `TransactionBehavior`, que agora existe — o `ICommand`
+no `where` dele é o que mantém query fora de transação.
 
 ### `ISender` é `Scoped`, e não é detalhe
 
@@ -648,6 +661,119 @@ ele, duas linhas seriam de fato dois incidentes para quem lê o log.
   merece ADR próprio, com uma cláusula herdada desta seção: nenhum sinal carrega dado de
   pessoa, e log não é o único sinal que vaza.
 
+## O `TransactionBehavior`
+
+Mora em `Kernel.Infrastructure` e é o anel 4, o mais interno. Faz três coisas, nesta ordem:
+abre uma transação, chama o resto do pipeline, e então **salva e confirma** — ou desfaz.
+
+```csharp
+await using IDbContextTransaction transaction =
+    await _context.Database.BeginTransactionAsync(cancellationToken);
+
+TResponse response = await next();
+
+if (response is Result { IsFailure: true })
+{
+    await transaction.RollbackAsync(cancellationToken);
+
+    return response;
+}
+
+await _context.SaveChangesAsync(cancellationToken);
+await transaction.CommitAsync(cancellationToken);
+```
+
+**O handler não chama `SaveChanges`.** Ele muda o rastreador de mudanças e devolve; quem
+grava é o anel. É uma regra a menos para esquecer no endpoint número onze, e ela combina com
+o `Id` que nasce no construtor: como o `Guid` já existe antes de o Postgres ver a entidade,
+nenhum handler precisa de um `SaveChanges` no meio para descobrir a chave.
+
+**Falha de negócio desfaz a transação.** O reconhecimento é `response is Result { IsFailure:
+true }` — o mesmo `is Result` que o `LoggingBehavior` já usa, sem reflexão. Um `Result` que
+falhou é uma requisição rejeitada, e requisição rejeitada não deixa rastro no banco. Resposta
+que não é `Result` nenhum conta como sucesso e confirma.
+
+**Exceção não tem `catch`.** O `await using` desfaz a transação ao sair do escopo, porque o
+`Dispose` do `IDbContextTransaction` faz rollback do que não foi confirmado. Isso mantém o
+behavior na regra da seção "Onde os `try/catch` desaparecem": quem transforma exceção em
+resposta é a fronteira HTTP, não o pipeline.
+
+### Por que a transação explícita, se `SaveChanges` já é atômico
+
+Uma chamada de `SaveChanges` já roda em transação implícita, então no caminho comum — handler
+mexe no rastreador, anel salva uma vez — o `BeginTransactionAsync` não acrescenta nada. Ela
+está ali pelo caminho **incomum**: o handler que chama `SaveChanges` por conta própria e
+depois falha, seja devolvendo `Result` de falha, seja lançando. Sem a transação explícita,
+essa escrita ficaria gravada e a requisição ainda responderia erro.
+
+**São os dois casos que ficariam vermelhos se alguém tirasse a transação daqui**, e os dois
+têm teste. Não é hipótese: os testes foram conferidos removendo a transação e vendo
+exatamente esses dois falharem, e mais nenhum.
+
+### Um módulo fecha o genérico em três linhas
+
+O behavior é `abstract` e recebe um `DbContext` qualquer. Ele não pode ser registrado direto
+porque o container precisa de um tipo de aridade 2 — `IPipelineBehavior<,>` — e um behavior
+que também fosse genérico no contexto teria aridade 3. Então cada módulo escreve a sua
+subclasse fechada, que é só um repasse de construtor:
+
+```csharp
+internal sealed class PessoasTransactionBehavior<TRequest, TResponse>(PessoasDbContext context)
+    : TransactionBehavior<TRequest, TResponse>(context)
+    where TRequest : ICommand<TResponse>
+{
+}
+```
+
+E registra o anel no `Program.cs`, na posição que ele deve ocupar:
+
+```csharp
+services.AddScoped(typeof(IPipelineBehavior<,>), typeof(PessoasTransactionBehavior<,>));
+```
+
+### Os anéis se acumulam, e essa conta chega no segundo módulo
+
+Um `DbContext` por módulo ([ADR-0015](../../../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md))
+significa **um anel de transação por módulo**. Todos são registrados no mesmo
+`IPipelineBehavior<,>` aberto, e a restrição `where TRequest : ICommand<TResponse>` é
+satisfeita por *qualquer* comando — então **todos entram na cadeia de todo comando**, inclusive
+os de outro módulo. Isso está medido, não suposto: registrar dois anéis fechados sobre o mesmo
+contexto faz o comando morrer com `InvalidOperationException: The connection is already in a
+transaction`, e há teste fixando exatamente isso.
+
+Duas leituras saem daí, e as duas importam:
+
+**Registrar o anel do mesmo módulo duas vezes quebra alto.** É a advertência da seção "Ordem
+dos behaviors" acontecendo de verdade — e é o bom modo de falhar: primeira requisição,
+exceção clara.
+
+**Com N módulos, um comando abre N transações em N contextos.** Elas não colidem, porque cada
+contexto tem conexão própria, e as N−1 alheias abrem e confirmam vazias. Mas cada uma toma uma
+conexão do pool pela duração da requisição, e isso não é desperdício simbólico: com cinco
+módulos são cinco conexões por requisição no lugar de uma.
+
+**Está tolerado hoje porque não existe módulo, e com um módulo só o custo é zero.** A conta
+chega no segundo, e não deve ser paga antes: as saídas plausíveis — filtrar por um marcador de
+módulo na requisição, ou registrar o anel fechado por tipo de comando — têm trade-offs
+diferentes, e a escolha melhora muito com dois módulos concretos na mão. **O que não é opção é
+descobrir isso em produção:** quem criar o segundo módulo decide, e o gatilho está escrito aqui.
+
+### O que ainda não está aqui
+
+- **Sem `IUnitOfWork`.** O que a interface existe para garantir — **um ponto de confirmação
+  por requisição**, em vez de `SaveChangesAsync` espalhado pelos handlers — está atendido pelo
+  próprio anel, e de forma mais forte: o handler não persiste porque não tem o que chamar, não
+  porque combinou-se que não chamaria. O que a interface acrescentaria é um nome a mais entre
+  o behavior e o `DbContext` que ele já recebe. Ela entra no dia em que houver um segundo tipo
+  de unidade de trabalho — o outbox é o candidato —, com o caso concreto na mão.
+- **Sem despacho de evento de domínio.** O `PopDomainEvents` existe e ninguém o chama. O lugar
+  dele é aqui, entre o `SaveChangesAsync` e o `CommitAsync`, e essa posição é uma decisão de
+  consequência — quem publica dentro da transação obriga o assinante a fazer parte dela. Fica
+  para quando o primeiro evento tiver assinante.
+- **Sem transação distribuída entre módulos.** Um comando toca um módulo. Se um dia precisar
+  tocar dois, a resposta não é um anel que abre duas transações: é evento e consistência
+  eventual, ou é sinal de que a fronteira entre os dois módulos está no lugar errado.
+
 ## O que não está aqui, e por quê
 
 **Sem `Bind`, `Map`, `Tap` ou `Ensure`.** É o próximo passo natural do padrão e é uma
@@ -718,8 +844,9 @@ registro porque **todo exemplo que você achar na internet falha aqui**:
 | --- | --- |
 | `tests/CathedrAll.Kernel.Domain.Tests/` | `Result`, `Error`, `Entity`, `AggregateRoot`, `DomainEvent` |
 | `tests/CathedrAll.Kernel.Application.Tests/` | despacho, cadeia de behaviors, `LoggingBehavior`, registro de DI |
+| `tests/CathedrAll.Kernel.Infrastructure.Tests/` | `TransactionBehavior`: o que confirma, o que desfaz e o que quebra alto |
 
-Unitários puros nos dois: sem host, sem banco. Os dublês são classes escritas à mão, e
+Unitários puros nos dois primeiros: sem host, sem banco. Os dublês são classes escritas à mão, e
 **não há biblioteca de mock no `Directory.Packages.props`** — nem deve haver. Um
 `FakeHandler` de dez linhas é mais legível para quem chega do que a API de setup de
 qualquer framework de mock, e este projeto tem rotatividade alta.
@@ -783,3 +910,29 @@ motivo dos outros — e com um efeito colateral bem-vindo: o projeto de teste n�
 lados. O `IsEnabled` do dublê devolve `true` sempre, e é ele que abre a guarda da `CA1873`:
 um dublê mais realista, que filtrasse por nível, derrubaria os sete testes por ausência de
 log — vermelho confuso, cuja causa estaria no dublê e não no behavior.
+
+### O teste que carrega peso no `TransactionBehavior`
+
+São dois, e os dois falam do mesmo ponto: **o handler salvou e a requisição falhou depois.**
+Um caso devolve `Result` de falha, o outro lança. Eles existem porque, sem a transação
+explícita, os dois gravariam — e todos os outros testes desta classe continuariam verdes.
+
+Isso foi conferido de verdade: removendo o `BeginTransactionAsync` e o `CommitAsync`,
+**exatamente esses dois ficam vermelhos**, e nenhum outro. É a única prova de que a transação
+não é decoração em cima de um `SaveChanges` que já é atômico.
+
+**O banco daqui é SQLite em memória, e não um dublê.** É a exceção à regra dos dublês escritos
+à mão, e o motivo é que o objeto sob teste é justamente o encanamento de transação: um
+`DbContext` falso teria que fingir `BeginTransaction`, `Commit`, `Rollback` e o efeito de
+`Dispose` sem confirmar — ou seja, o dublê teria que conter a resposta que o teste deveria
+verificar. O provedor `InMemory` do EF também não serve: ele **ignora transação em silêncio**,
+que é precisamente o comportamento errado que estamos tentando detectar.
+
+A conexão fica aberta pelo tempo do teste, numa variável `await using`, porque banco SQLite em
+memória vive enquanto a conexão viver. Fechá-la cedo apaga o schema, e o sintoma é "tabela não
+existe" num teste que não fala de schema.
+
+**Nada disso substitui um teste contra Postgres de verdade.** SQLite confirma a *forma* — que
+o anel abre, salva, confirma e desfaz na hora certa —, e não o comportamento do Postgres em
+isolamento, deadlock ou timeout de bloqueio. Esses aparecem com o primeiro módulo e pedem
+teste de integração com banco real.

@@ -2,14 +2,16 @@
 
 .NET 10, ASP.NET Core, Minimal API. Domínio: `api.ibscristo.com.br`.
 
-> **Estado: host, kernel, mediator e o formato de erro.** Existem o host com `/health`, a
-> configuração de build, o kernel de domínio — `Result`, `Error`, `ErrorType`, `Entity`,
-> `AggregateRoot`, `DomainEvent` —, o mediator com um único behavior, o de log, e os dois
-> pontos de conversão da fronteira HTTP descritos em [Formato de erro](#formato-de-erro). O
-> kernel está em [`src/Kernel/README.md`](src/Kernel/README.md). Nenhum módulo, nenhum acesso
-> a banco, nenhuma autenticação, nenhum handler de requisição. A API está sendo reconstruída
-> do zero, em passos pequenos. Este README descreve só o que já existe — se algo não estiver
-> aqui, não foi construído ainda.
+> **Estado: host, kernel, mediator, formato de erro e o anel de transação.** Existem o host
+> com `/health`, a configuração de build, o kernel de domínio — `Result`, `Error`,
+> `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` —, o mediator com dois behaviors, o de
+> log e o de transação, e os dois pontos de conversão da fronteira HTTP descritos em
+> [Formato de erro](#formato-de-erro). O kernel está em
+> [`src/Kernel/README.md`](src/Kernel/README.md). **O anel de transação existe e nada o
+> registra:** ele depende de um `DbContext`, e não há módulo para fornecê-lo. Nenhum módulo,
+> nenhum banco alcançado pela aplicação, nenhuma migration, nenhuma autenticação, nenhum
+> handler de requisição. A API está sendo reconstruída do zero, em passos pequenos. Este
+> README descreve só o que já existe — se algo não estiver aqui, não foi construído ainda.
 
 ## Comandos
 
@@ -179,10 +181,12 @@ src/
   Kernel/
     CathedrAll.Kernel.Domain/             Result, Error, ErrorType, Entity
     CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior
+    CathedrAll.Kernel.Infrastructure/     TransactionBehavior
 tests/
   CathedrAll.Api.Tests/                   testes do host: integração e mapeamento
   CathedrAll.Kernel.Domain.Tests/         testes unitários do kernel de domínio
   CathedrAll.Kernel.Application.Tests/    testes unitários do mediator
+  CathedrAll.Kernel.Infrastructure.Tests/ testes do anel de transação, sobre SQLite
 ```
 
 O kernel compartilhado tem [README próprio](src/Kernel/README.md), com a regra que decide
@@ -199,6 +203,11 @@ builder.Services.AddLoggingBehavior();
 A segunda linha é opcional por desenho — **a ordem das linhas é a ordem dos anéis**, e
 escondê-la dentro do registro do mediator tiraria do `Program.cs` a única visão que existe
 do pipeline inteiro. O porquê de cada anel ficar onde fica está no README do kernel.
+
+**Falta aqui uma terceira linha, e ela chega com o primeiro módulo:** o registro do anel de
+transação, que precisa do `DbContext` do módulo para existir. O behavior já está escrito em
+`Kernel.Infrastructure`; quem o registra é o `Program.cs`, depois do anel de log, com a
+subclasse de três linhas que o [README do kernel](src/Kernel/README.md) mostra.
 
 **Cada projeto de origem tem o próprio projeto de teste.** Um projeto de teste único
 precisaria referenciar todos os módulos, e seria o único assembly onde tipos de módulos
@@ -269,6 +278,12 @@ cada save.
 Dado de membro de igreja é dado pessoal sensível (LGPD). Nada disso é backlog — vem antes
 do primeiro endpoint que toque em `Pessoa`:
 
+- [x] **Transação por requisição** — o anel existe; falta um módulo registrá-lo
 - [ ] **Audit log** por `SaveChangesInterceptor`, em tabela append-only
 - [ ] **Soft delete** com filtro global de consulta
 - [ ] **RBAC com escopo** — líder enxerga apenas o próprio departamento
+
+Os três que faltam penduram no `DbContext`, e a forma de persistência está decidida no
+[ADR-0015](../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md): um `DbContext` por
+módulo, com schema próprio. A auditoria fica **dentro** da transação, porque pendura no
+`SaveChanges` — é o anel de transação que garante isso, e é por isso que ele vem primeiro.
