@@ -32,7 +32,7 @@ aprende. Se não teve dúvida nenhuma, escreva "nenhuma".
 - [ ] Um PR, uma issue — nada de carona
 - [ ] Sem `fetch` à mão na SPA (só `packages/api-client`)
 - [ ] Vertical slice por módulo, sem pasta genérica por tipo técnico
-- [ ] Domínio e UI em português, infraestrutura em inglês, sem mistura na mesma camada
+- [ ] Código em inglês; negócio, UI e nome de teste em português (ADR-0013)
 - [ ] Nenhum segredo versionado
 - [ ] Tocou em dado de pessoa? Audit log, escopo de permissão e soft delete contemplados
 - [ ] Documentação e spec atualizadas neste mesmo PR, se o comportamento mudou

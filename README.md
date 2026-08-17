@@ -91,8 +91,11 @@ grandeza mais lento e o hot reload deixa de funcionar direito.
 
 ## Convenções
 
-- **Português** para nomes de domínio (`Pessoa`, `Departamento`, `Escala`) e para toda a UI.
-  Inglês para termos de infraestrutura e framework. Não misture dentro da mesma camada.
+- **Inglês é o idioma de código**; o vocabulário de negócio é a exceção e fica em português.
+  Padrão de projeto usa o nome consagrado (`Factory`, `Repository`, `Handler`); entidade da
+  igreja usa o nome da igreja (`Pessoa`, `Departamento`, `Escala`). Todo texto de UI e todo
+  nome de método de teste em português. Na dúvida, inglês —
+  [ADR-0013](docs/adr/0013-ingles-como-idioma-de-codigo-portugues-no-dominio.md).
 - Um PR por assunto. CI verde é obrigatório para merge.
 - Decisão arquitetural relevante vira ADR em `docs/adr/` antes de virar código.
 
