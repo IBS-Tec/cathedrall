@@ -1,3 +1,3 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed record ComandoFalso(string Valor) : ICommand<string>;
+internal sealed record FakeCommand(string Value) : ICommand<string>;

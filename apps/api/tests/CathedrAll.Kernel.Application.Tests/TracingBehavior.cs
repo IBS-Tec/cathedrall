@@ -1,17 +1,17 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class BehaviorRastreado(string nome, List<string> rastro)
-    : IPipelineBehavior<RequisicaoFalsa, string>
+internal sealed class TracingBehavior(string name, List<string> trace)
+    : IPipelineBehavior<FakeRequest, string>
 {
     public async Task<string> HandleAsync(
-        RequisicaoFalsa request,
+        FakeRequest request,
         RequestHandlerDelegate<string> next,
         CancellationToken cancellationToken)
     {
-        rastro.Add($"{nome} antes");
-        string resposta = await next();
-        rastro.Add($"{nome} depois");
+        trace.Add($"{name} before");
+        string response = await next();
+        trace.Add($"{name} after");
 
-        return resposta;
+        return response;
     }
 }

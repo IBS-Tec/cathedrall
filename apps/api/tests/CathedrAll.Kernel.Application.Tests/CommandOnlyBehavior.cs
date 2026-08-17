@@ -1,6 +1,6 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class BehaviorSoDeComando<TRequest, TResponse>(List<string> rastro)
+internal sealed class CommandOnlyBehavior<TRequest, TResponse>(List<string> trace)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : ICommand<TResponse>
 {
@@ -9,10 +9,10 @@ internal sealed class BehaviorSoDeComando<TRequest, TResponse>(List<string> rast
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        rastro.Add("comando antes");
-        TResponse resposta = await next();
-        rastro.Add("comando depois");
+        trace.Add("command before");
+        TResponse response = await next();
+        trace.Add("command after");
 
-        return resposta;
+        return response;
     }
 }

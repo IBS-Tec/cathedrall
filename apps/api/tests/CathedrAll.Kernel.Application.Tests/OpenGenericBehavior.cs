@@ -1,6 +1,6 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class BehaviorAberto<TRequest, TResponse>(List<string> rastro)
+internal sealed class OpenGenericBehavior<TRequest, TResponse>(List<string> trace)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -9,10 +9,10 @@ internal sealed class BehaviorAberto<TRequest, TResponse>(List<string> rastro)
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        rastro.Add("aberto antes");
-        TResponse resposta = await next();
-        rastro.Add("aberto depois");
+        trace.Add("open before");
+        TResponse response = await next();
+        trace.Add("open after");
 
-        return resposta;
+        return response;
     }
 }

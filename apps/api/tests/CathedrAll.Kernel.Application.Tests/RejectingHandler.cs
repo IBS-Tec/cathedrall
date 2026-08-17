@@ -2,14 +2,14 @@ using CathedrAll.Kernel.Domain;
 
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class HandlerQueRecusa : IRequestHandler<ComandoQueFalha, Result<string>>
+internal sealed class RejectingHandler : IRequestHandler<FakeResultCommand, Result<string>>
 {
-    public static readonly Error Recusa = Error.Conflict(
-        "Teste.Recusado",
+    public static readonly Error Rejection = Error.Conflict(
+        "Test.Rejected",
         "Descrição que não deve aparecer no log.");
 
     public Task<Result<string>> HandleAsync(
-        ComandoQueFalha request,
+        FakeResultCommand request,
         CancellationToken cancellationToken) =>
-        Task.FromResult(Result.Failure<string>(Recusa));
+        Task.FromResult(Result.Failure<string>(Rejection));
 }

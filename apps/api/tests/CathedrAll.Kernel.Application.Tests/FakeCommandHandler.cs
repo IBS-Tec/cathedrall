@@ -1,11 +1,11 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class HandlerDeComandoFalso(List<string> rastro) : IRequestHandler<ComandoFalso, string>
+internal sealed class FakeCommandHandler(List<string> trace) : IRequestHandler<FakeCommand, string>
 {
-    public Task<string> HandleAsync(ComandoFalso request, CancellationToken cancellationToken)
+    public Task<string> HandleAsync(FakeCommand request, CancellationToken cancellationToken)
     {
-        rastro.Add("handler");
+        trace.Add("handler");
 
-        return Task.FromResult(HandlerFalso.Resposta);
+        return Task.FromResult(FakeHandler.Response);
     }
 }

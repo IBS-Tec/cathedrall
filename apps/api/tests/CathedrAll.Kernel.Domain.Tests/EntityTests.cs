@@ -6,34 +6,34 @@ public sealed class EntityTests
     public void Entidades_do_mesmo_tipo_com_o_mesmo_id_devem_ser_iguais()
     {
         var id = Guid.CreateVersion7();
-        var entidade = new EntidadeFalsa(id);
-        var outraInstancia = new EntidadeFalsa(id);
+        var entity = new FakeEntity(id);
+        var otherInstance = new FakeEntity(id);
 
-        Assert.Equal(entidade, outraInstancia);
-        Assert.True(entidade == outraInstancia);
-        Assert.False(entidade != outraInstancia);
-        Assert.Equal(entidade.GetHashCode(), outraInstancia.GetHashCode());
+        Assert.Equal(entity, otherInstance);
+        Assert.True(entity == otherInstance);
+        Assert.False(entity != otherInstance);
+        Assert.Equal(entity.GetHashCode(), otherInstance.GetHashCode());
     }
 
     [Fact]
     public void Entidades_do_mesmo_tipo_com_ids_diferentes_devem_ser_diferentes()
     {
-        var entidade = new EntidadeFalsa(Guid.CreateVersion7());
-        var outra = new EntidadeFalsa(Guid.CreateVersion7());
+        var entity = new FakeEntity(Guid.CreateVersion7());
+        var other = new FakeEntity(Guid.CreateVersion7());
 
-        Assert.NotEqual(entidade, outra);
-        Assert.True(entidade != outra);
+        Assert.NotEqual(entity, other);
+        Assert.True(entity != other);
     }
 
     [Fact]
     public void Entidades_de_tipos_diferentes_com_o_mesmo_id_devem_ser_diferentes()
     {
         var id = Guid.CreateVersion7();
-        var entidade = new EntidadeFalsa(id);
-        var deOutroTipo = new OutraEntidadeFalsa(id);
+        var entity = new FakeEntity(id);
+        var ofAnotherType = new AnotherFakeEntity(id);
 
-        Assert.False(entidade.Equals(deOutroTipo));
-        Assert.False(deOutroTipo.Equals(entidade));
+        Assert.False(entity.Equals(ofAnotherType));
+        Assert.False(ofAnotherType.Equals(entity));
     }
 
     [Fact]
@@ -41,21 +41,21 @@ public sealed class EntityTests
     {
         var id = Guid.CreateVersion7();
 
-        HashSet<EntidadeFalsa> conjunto = [new EntidadeFalsa(id), new EntidadeFalsa(id)];
+        HashSet<FakeEntity> set = [new FakeEntity(id), new FakeEntity(id)];
 
-        Assert.Single(conjunto);
+        Assert.Single(set);
     }
 
     [Fact]
     public void Contains_deve_encontrar_outra_instancia_com_o_mesmo_id()
     {
         var id = Guid.CreateVersion7();
-        List<EntidadeFalsa> lista = [new EntidadeFalsa(id)];
+        List<FakeEntity> list = [new FakeEntity(id)];
 
-        Assert.Contains(new EntidadeFalsa(id), lista);
+        Assert.Contains(new FakeEntity(id), list);
     }
 
-    private sealed class EntidadeFalsa(Guid id) : Entity<Guid>(id);
+    private sealed class FakeEntity(Guid id) : Entity<Guid>(id);
 
-    private sealed class OutraEntidadeFalsa(Guid id) : Entity<Guid>(id);
+    private sealed class AnotherFakeEntity(Guid id) : Entity<Guid>(id);
 }

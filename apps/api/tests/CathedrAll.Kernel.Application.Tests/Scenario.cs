@@ -2,18 +2,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal static class Cenario
+internal static class Scenario
 {
-    public static ServiceProvider Construir(Action<IServiceCollection>? registrar = null)
+    public static ServiceProvider Build(Action<IServiceCollection>? register = null)
     {
-        ServiceCollection servicos = new();
+        ServiceCollection services = new();
 
-        servicos.AddKernelApplication();
-        registrar?.Invoke(servicos);
+        services.AddKernelApplication();
+        register?.Invoke(services);
 
-        return servicos.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
-    public static ISender SenderDoEscopo(IServiceScope escopo) =>
-        escopo.ServiceProvider.GetRequiredService<ISender>();
+    public static ISender SenderFrom(IServiceScope scope) =>
+        scope.ServiceProvider.GetRequiredService<ISender>();
 }

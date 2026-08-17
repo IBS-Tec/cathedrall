@@ -7,93 +7,93 @@ public sealed class SenderTests
     [Fact]
     public async Task Deve_despachar_ao_handler_e_devolver_a_resposta()
     {
-        List<string> rastro = [];
-        HandlerFalso handler = new(rastro);
+        List<string> trace = [];
+        FakeHandler handler = new(trace);
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(handler));
+        using ServiceProvider provider = Scenario.Build(services =>
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(handler));
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        string resposta = await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        string response = await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        Assert.Equal(HandlerFalso.Resposta, resposta);
-        Assert.Equal("qualquer", handler.RequisicaoRecebida?.Valor);
+        Assert.Equal(FakeHandler.Response, response);
+        Assert.Equal("qualquer", handler.ReceivedRequest?.Value);
     }
 
     [Fact]
     public async Task Deve_repassar_o_token_de_cancelamento_ao_handler()
     {
-        List<string> rastro = [];
-        HandlerFalso handler = new(rastro);
+        List<string> trace = [];
+        FakeHandler handler = new(trace);
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(handler);
-            servicos.AddSingleton<IPipelineBehavior<RequisicaoFalsa, string>>(new BehaviorRastreado("A", rastro));
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(handler);
+            services.AddSingleton<IPipelineBehavior<FakeRequest, string>>(new TracingBehavior("A", trace));
         });
 
-        using CancellationTokenSource fonte = new();
-        using IServiceScope escopo = provedor.CreateScope();
+        using CancellationTokenSource source = new();
+        using IServiceScope scope = provider.CreateScope();
 
-        await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), fonte.Token);
+        await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), source.Token);
 
-        Assert.Equal(fonte.Token, handler.TokenRecebido);
+        Assert.Equal(source.Token, handler.ReceivedToken);
     }
 
     [Fact]
     public async Task Handler_nao_registrado_deve_lancar_excecao()
     {
-        using ServiceProvider provedor = Cenario.Construir();
-        using IServiceScope escopo = provedor.CreateScope();
+        using ServiceProvider provider = Scenario.Build();
+        using IServiceScope scope = provider.CreateScope();
 
-        ISender sender = Cenario.SenderDoEscopo(escopo);
+        ISender sender = Scenario.SenderFrom(scope);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            sender.SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None));
+            sender.SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None));
     }
 
     [Fact]
     public async Task Excecao_do_handler_deve_subir_intacta_pela_cadeia()
     {
-        List<string> rastro = [];
+        List<string> trace = [];
 
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddSingleton<IRequestHandler<RequisicaoFalsa, string>>(new HandlerQueLanca());
-            servicos.AddSingleton<IPipelineBehavior<RequisicaoFalsa, string>>(new BehaviorRastreado("A", rastro));
+            services.AddSingleton<IRequestHandler<FakeRequest, string>>(new ThrowingHandler());
+            services.AddSingleton<IPipelineBehavior<FakeRequest, string>>(new TracingBehavior("A", trace));
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        ISender sender = Cenario.SenderDoEscopo(escopo);
+        ISender sender = Scenario.SenderFrom(scope);
 
-        TimeoutException excecao = await Assert.ThrowsAsync<TimeoutException>(() =>
-            sender.SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None));
+        TimeoutException exception = await Assert.ThrowsAsync<TimeoutException>(() =>
+            sender.SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None));
 
-        Assert.Equal(HandlerQueLanca.MensagemDeFalha, excecao.Message);
+        Assert.Equal(ThrowingHandler.FailureMessage, exception.Message);
 
-        string[] esperado = ["A antes"];
+        string[] expected = ["A before"];
 
-        Assert.Equal(esperado, rastro);
+        Assert.Equal(expected, trace);
     }
 
     [Fact]
     public async Task Deve_resolver_handler_registrado_como_scoped()
     {
-        using ServiceProvider provedor = Cenario.Construir(servicos =>
+        using ServiceProvider provider = Scenario.Build(services =>
         {
-            servicos.AddScoped<List<string>>();
-            servicos.AddScoped<IRequestHandler<RequisicaoFalsa, string>, HandlerFalso>();
+            services.AddScoped<List<string>>();
+            services.AddScoped<IRequestHandler<FakeRequest, string>, FakeHandler>();
         });
 
-        using IServiceScope escopo = provedor.CreateScope();
+        using IServiceScope scope = provider.CreateScope();
 
-        string resposta = await Cenario.SenderDoEscopo(escopo)
-            .SendAsync<RequisicaoFalsa, string>(new RequisicaoFalsa("qualquer"), CancellationToken.None);
+        string response = await Scenario.SenderFrom(scope)
+            .SendAsync<FakeRequest, string>(new FakeRequest("qualquer"), CancellationToken.None);
 
-        Assert.Equal(HandlerFalso.Resposta, resposta);
+        Assert.Equal(FakeHandler.Response, response);
     }
 }

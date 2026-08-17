@@ -2,17 +2,17 @@ using Microsoft.Extensions.Logging;
 
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class FabricaDeLogFalsa(List<RegistroDeLog> registros) : ILoggerFactory
+internal sealed class FakeLoggerFactory(List<LogRecord> records) : ILoggerFactory
 {
-    private readonly List<string> _categorias = [];
+    private readonly List<string> _categories = [];
 
-    public IReadOnlyList<string> Categorias => _categorias;
+    public IReadOnlyList<string> Categories => _categories;
 
     public ILogger CreateLogger(string categoryName)
     {
-        _categorias.Add(categoryName);
+        _categories.Add(categoryName);
 
-        return new LoggerFalso(registros);
+        return new FakeLogger(records);
     }
 
     public void AddProvider(ILoggerProvider provider)

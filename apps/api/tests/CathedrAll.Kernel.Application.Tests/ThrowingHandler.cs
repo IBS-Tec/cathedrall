@@ -1,9 +1,9 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class HandlerQueLanca : IRequestHandler<RequisicaoFalsa, string>
+internal sealed class ThrowingHandler : IRequestHandler<FakeRequest, string>
 {
-    public const string MensagemDeFalha = "Postgres fora do ar";
+    public const string FailureMessage = "Postgres is down";
 
-    public Task<string> HandleAsync(RequisicaoFalsa request, CancellationToken cancellationToken) =>
-        throw new TimeoutException(MensagemDeFalha);
+    public Task<string> HandleAsync(FakeRequest request, CancellationToken cancellationToken) =>
+        throw new TimeoutException(FailureMessage);
 }

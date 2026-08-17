@@ -1,17 +1,17 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class BehaviorQueCurtoCircuita(List<string> rastro)
-    : IPipelineBehavior<RequisicaoFalsa, string>
+internal sealed class ShortCircuitingBehavior(List<string> trace)
+    : IPipelineBehavior<FakeRequest, string>
 {
-    public const string Resposta = "curto-circuito";
+    public const string Response = "short-circuit";
 
     public Task<string> HandleAsync(
-        RequisicaoFalsa request,
+        FakeRequest request,
         RequestHandlerDelegate<string> next,
         CancellationToken cancellationToken)
     {
-        rastro.Add("curto antes");
+        trace.Add("short before");
 
-        return Task.FromResult(Resposta);
+        return Task.FromResult(Response);
     }
 }

@@ -2,12 +2,12 @@ using CathedrAll.Kernel.Domain;
 
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class HandlerQueAceita : IRequestHandler<ComandoQueFalha, Result<string>>
+internal sealed class AcceptingHandler : IRequestHandler<FakeResultCommand, Result<string>>
 {
-    public const string Resposta = "aceito";
+    public const string Response = "accepted";
 
     public Task<Result<string>> HandleAsync(
-        ComandoQueFalha request,
+        FakeResultCommand request,
         CancellationToken cancellationToken) =>
-        Task.FromResult(Result.Success(Resposta));
+        Task.FromResult(Result.Success(Response));
 }

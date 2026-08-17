@@ -1,19 +1,19 @@
 namespace CathedrAll.Kernel.Application.Tests;
 
-internal sealed class HandlerFalso(List<string> rastro) : IRequestHandler<RequisicaoFalsa, string>
+internal sealed class FakeHandler(List<string> trace) : IRequestHandler<FakeRequest, string>
 {
-    public const string Resposta = "resposta do handler";
+    public const string Response = "handler response";
 
-    public RequisicaoFalsa? RequisicaoRecebida { get; private set; }
+    public FakeRequest? ReceivedRequest { get; private set; }
 
-    public CancellationToken TokenRecebido { get; private set; }
+    public CancellationToken ReceivedToken { get; private set; }
 
-    public Task<string> HandleAsync(RequisicaoFalsa request, CancellationToken cancellationToken)
+    public Task<string> HandleAsync(FakeRequest request, CancellationToken cancellationToken)
     {
-        RequisicaoRecebida = request;
-        TokenRecebido = cancellationToken;
-        rastro.Add("handler");
+        ReceivedRequest = request;
+        ReceivedToken = cancellationToken;
+        trace.Add("handler");
 
-        return Task.FromResult(Resposta);
+        return Task.FromResult(Response);
     }
 }

@@ -3,35 +3,35 @@ using Npgsql;
 
 namespace CathedrAll.Api;
 
-internal sealed class PostgresHealthCheck(IConfiguration configuracao) : IHealthCheck
+internal sealed class PostgresHealthCheck(IConfiguration configuration) : IHealthCheck
 {
-    internal const string NomeDaConexao = "CathedrAll";
+    internal const string ConnectionName = "CathedrAll";
 
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
-        string? conexao = configuracao.GetConnectionString(NomeDaConexao);
+        string? connectionString = configuration.GetConnectionString(ConnectionName);
 
-        if (string.IsNullOrWhiteSpace(conexao))
+        if (string.IsNullOrWhiteSpace(connectionString))
         {
             return HealthCheckResult.Unhealthy(
-                $"Connection string '{NomeDaConexao}' não configurada.");
+                $"Connection string '{ConnectionName}' is not configured.");
         }
 
         try
         {
-            await using NpgsqlConnection ligacao = new(conexao);
-            await ligacao.OpenAsync(cancellationToken);
+            await using NpgsqlConnection connection = new(connectionString);
+            await connection.OpenAsync(cancellationToken);
 
-            await using NpgsqlCommand comando = new("SELECT 1", ligacao);
-            await comando.ExecuteScalarAsync(cancellationToken);
+            await using NpgsqlCommand command = new("SELECT 1", connection);
+            await command.ExecuteScalarAsync(cancellationToken);
 
             return HealthCheckResult.Healthy();
         }
-        catch (Exception excecao)
+        catch (Exception exception)
         {
-            return HealthCheckResult.Unhealthy("Postgres inacessível.", excecao);
+            return HealthCheckResult.Unhealthy("Postgres is unreachable.", exception);
         }
     }
 }
