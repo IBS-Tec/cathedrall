@@ -1,6 +1,6 @@
 # Spec-0001 — Pessoas
 
-**Status:** Rascunho · **Data:** 2026-08-22 · **Responsável:** Miquéias Filho
+**Status:** Aprovada · **Data:** 2026-08-22 · **Responsável:** Miquéias Filho
 
 Deriva de: [`docs/dominio.md`](../dominio.md#cadastro) · Decisões relacionadas:
 [ADR-0008](../adr/0008-pessoa-como-raiz-unica.md),
@@ -166,10 +166,12 @@ ficha não tem CPF nem documento, e nome + data de nascimento é heurística, n�
 90 linhas há 2 pares de homônimos com datas diferentes). Duplicata se resolve com `Fundir`,
 não com constraint.
 
-**Migrations:** em `src/Modulos/CathedrAll.Pessoas/Migrations/`, com
-`__EFMigrationsHistory` no schema `pessoas`. *(O ADR-0015 grafa a pasta como `Modules/` e o
-repositório usa `Modulos/`; pela convenção do ADR-0013 o ADR está certo e a pasta está
-errada. Resolver antes da primeira migration.)*
+**Migrations:** dentro do projeto do módulo, com `__EFMigrationsHistory` no schema
+`pessoas`. *(O nome da pasta contêiner está em disputa e por isso não aparece aqui: o
+ADR-0013 lista `Modulos/Pessoas/` como português, o ADR-0015 grafa `src/Modules/`, e o
+`apps/admin` usa `modules/`. Dois ADRs aceitos discordam, e o `CLAUDE.md` afirma que os dois
+lados se espelham — o que hoje não é verdade. Precisa ser resolvido antes da primeira
+migration, porque o caminho fica gravado no `ModelSnapshot`.)*
 
 ## 5. Regras de negócio
 
@@ -616,8 +618,8 @@ isso", que é o mesmo que não ter log.
 Nenhuma sobre o domínio. As quatro que existiam foram respondidas e estão registradas em
 [`docs/dominio.md`](../dominio.md#perguntas-em-aberto).
 
-As onze seções estão escritas. Pelo critério do [`README`](README.md) — seção 10 sem
-pergunta em aberto — a spec pode passar a **Aprovada** e gerar issues.
+As onze seções estão escritas e a spec está **Aprovada**: as issues podem ser abertas, e a
+numeração das regras está congelada a partir daqui — acrescenta-se no fim, nunca se renumera.
 
 **Registrar a visita de retorno** é a extensão óbvia, e está deliberadamente fora. O que a
 recepção hoje chama de duplicata é, no mundo real, o dado mais valioso do funil: quem voltou.
