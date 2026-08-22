@@ -12,10 +12,11 @@ Se você precisou decidir alguma coisa de domínio no meio do código — se um 
 obrigatório, quem pode ver o quê, o que acontece quando o dado não existe — a spec estava
 incompleta. Pare, pergunte, e a correção vai para a spec. Não para o comentário do PR.
 
-**Uma exceção:** ADR e spec, escritos pelo mantenedor, entram por PR direto, sem issue. A
-regra do "sem issue" existe para impedir trabalho não planejado de voluntário; o PR da spec já
-é o artefato de discussão, e uma issue dizendo "escrever a spec de Pessoa" não carregaria nada
-que a própria spec não carregue.
+**Uma exceção:** ADR, spec e documentação de processo — este arquivo inclusive —, quando
+escritos pelo mantenedor, entram por PR direto, sem issue. A regra do "sem issue" existe para
+impedir trabalho não planejado de voluntário; o PR do documento já é o artefato de discussão,
+e uma issue dizendo "escrever a spec de Pessoa" não carregaria nada que a própria spec não
+carregue.
 
 ## Antes da primeira contribuição
 
