@@ -2,8 +2,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Como contribuir
-    url: https://github.com/IBS-Devs/cathedrall/blob/main/CONTRIBUTING.md
+    url: https://github.com/IBS-Tec/cathedrall/blob/main/CONTRIBUTING.md
     about: O fluxo do projeto, a Definição de Pronta e a Definição de Feita
   - name: Montar o ambiente
-    url: https://github.com/IBS-Devs/cathedrall/blob/main/docs/setup.md
+    url: https://github.com/IBS-Tec/cathedrall/blob/main/docs/setup.md
     about: Do clone até tudo rodando. Se algo lá não funcionar, abra um defeito — o manual está errado, não você
