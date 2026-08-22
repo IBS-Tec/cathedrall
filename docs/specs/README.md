@@ -43,6 +43,20 @@ adivinhação de quem estiver codando às onze da noite, e domínio de igreja n�
 quando houver dúvida sobre o processo real, pergunte à secretaria ou ao líder do
 departamento antes.
 
+**O status volta.** Pergunta nova numa spec Aprovada faz ela voltar a Rascunho até ser
+respondida. O efeito é o que interessa: para de gerar issue enquanto a dúvida existe.
+
+**A numeração das regras congela na aprovação.** Antes disso, renumerar é livre. Depois, as
+issues e os testes citam "RN-7", e o número virou contrato: **acrescente no fim, nunca
+renumere.** Regra que sai vira uma linha de lápide — `RN-9 — removida em 2027-03-14, ver
+RN-31` — em vez de deixar buraco na sequência. Inserir no meio empurra as seguintes e quebra
+as referências cruzadas **em silêncio**, que é o pior tipo de erro: o texto continua parecendo
+certo.
+
+**A seção 11 não é o rastreador.** Quando as issues nascem, o número de cada uma volta para a
+linha correspondente e as caixas não se marcam — o andamento é do GitHub. O fluxo completo,
+da spec até o PR, está em [`CONTRIBUTING.md`](../../CONTRIBUTING.md#da-spec-às-issues).
+
 ## Índice
 
 | # | Módulo | Status |
