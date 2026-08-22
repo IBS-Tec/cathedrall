@@ -41,8 +41,9 @@ Estas regras não são preferência de estilo; violá-las quebra a arquitetura.
   o usuário lê e os nomes de método de teste. A fronteira não é a camada, é a natureza do
   nome: coisa da igreja em português, coisa de computador em inglês. Na dúvida, inglês.
   Ver [ADR-0013](docs/adr/0013-ingles-como-idioma-de-codigo-portugues-no-dominio.md).
-- Vertical slices dos dois lados: `apps/api/src/CathedrAll.Api/Modules/<Modulo>/` e
-  `apps/admin/src/modules/<modulo>/` se espelham.
+- Vertical slices dos dois lados: `apps/api/src/Modules/CathedrAll.<Modulo>/` e
+  `apps/admin/src/modules/<modulo>/` se espelham. A pasta contêiner é `Modules`, em inglês;
+  a fatia dentro dela é português ([ADR-0016](docs/adr/0016-modules-como-nome-da-pasta-conteiner.md)).
 - Nada de pastas genéricas por tipo técnico (`Services/`, `Repositories/`, `DTOs/`).
 - Nada de segredo versionado. Só `.env.example`.
 

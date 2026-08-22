@@ -24,6 +24,7 @@ de biblioteca de máscara de CPF.
 | [0010](0010-cloudflare-tunnel-como-ingress.md) | Cloudflare Tunnel como ingress | Aceito |
 | [0011](0011-shadcn-tailwind-nos-dois-frontends.md) | shadcn/ui e Tailwind nos dois frontends | Aceito |
 | [0012](0012-monolito-modular-estrito-com-mediator-proprio.md) | Monólito modular estrito, DDD e mediator próprio | Aceito |
-| [0013](0013-ingles-como-idioma-de-codigo-portugues-no-dominio.md) | Inglês como idioma de código, português no domínio | Aceito |
+| [0013](0013-ingles-como-idioma-de-codigo-portugues-no-dominio.md) | Inglês como idioma de código, português no domínio | Aceito · pasta contêiner revista pelo [0016](0016-modules-como-nome-da-pasta-conteiner.md) |
 | [0014](0014-problem-details-como-formato-unico-de-erro.md) | ProblemDetails como formato único de erro da API | Aceito |
 | [0015](0015-um-dbcontext-e-migrations-por-modulo.md) | Um `DbContext` e um conjunto de migrations por módulo | Aceito |
+| [0016](0016-modules-como-nome-da-pasta-conteiner.md) | `Modules/` como nome da pasta contêiner dos módulos | Aceito |
