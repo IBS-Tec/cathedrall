@@ -61,4 +61,4 @@ da spec até o PR, está em [`CONTRIBUTING.md`](../../CONTRIBUTING.md#da-spec-à
 
 | # | Módulo | Status |
 |---|---|---|
-| — | _nenhuma spec escrita ainda_ | — |
+| [0001](0001-pessoas.md) | Pessoas | Rascunho |
