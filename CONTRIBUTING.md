@@ -12,6 +12,11 @@ Se você precisou decidir alguma coisa de domínio no meio do código — se um 
 obrigatório, quem pode ver o quê, o que acontece quando o dado não existe — a spec estava
 incompleta. Pare, pergunte, e a correção vai para a spec. Não para o comentário do PR.
 
+**Uma exceção:** ADR e spec, escritos pelo mantenedor, entram por PR direto, sem issue. A
+regra do "sem issue" existe para impedir trabalho não planejado de voluntário; o PR da spec já
+é o artefato de discussão, e uma issue dizendo "escrever a spec de Pessoa" não carregaria nada
+que a própria spec não carregue.
+
 ## Antes da primeira contribuição
 
 1. [`docs/setup.md`](docs/setup.md) — do clone até tudo rodando.
@@ -36,6 +41,71 @@ existiam.
 
 ADR é imutável depois de aceito. Spec é viva: quando a realidade discorda dela, quem
 descobriu atualiza a spec no mesmo PR que muda o código.
+
+## Da spec às issues
+
+A spec **merga sozinha e antes** das issues que ela origina. Nunca no mesmo PR.
+
+O motivo é prático: o campo "Spec e seção" do template de tarefa é um caminho de arquivo, e
+quem vai implementar lê `main`, não a sua branch. Issue apontando para spec que ainda não
+existe é issue que ninguém consegue pegar.
+
+**Isso é diferente do ADR**, que costuma vir junto da implementação no mesmo PR — foi assim
+com o ADR-0014 e a conversão de erro na fronteira HTTP. Funciona porque quem implementa o ADR
+é quem o escreveu. Não funciona para spec: o propósito dela é destravar duas pessoas
+trabalhando ao mesmo tempo, e ninguém trabalha contra um arquivo que não está em `main`.
+
+```
+1. Mantenedor escreve a spec       branch docs/spec-0001-pessoas
+2. PR da spec, revisado, mergeado  → agora existe em main
+3. Seção 11 vira N issues          cada uma cita "spec 0001, seção X"
+4. Voluntário comenta "peguei"     branch feat/42-cadastro-de-pessoa
+5. PR resolve #42                  spec atualizada no mesmo PR, se mudou
+```
+
+Ao criar cada issue, **devolva o número dela para a seção 11 da spec** — `- [ ] Migration
+inicial (#42)` — e não marque as caixas. O andamento é do GitHub, e uma milestone por spec dá
+a barra de progresso de graça. Spec que também rastreia progresso vira segunda fonte de
+verdade, e duas fontes de verdade sempre divergem.
+
+### Quando a spec muda no meio do desenvolvimento
+
+A spec é viva, então ela vai mudar com issue aberta. O que decide o que fazer é **se alguém já
+pegou** — e o sinal é o comentário de "peguei" que esta página pede.
+
+| Situação | O que fazer |
+|---|---|
+| Ninguém comentou que pegou | Edita o corpo da issue. Livre |
+| Alguém pegou, mudança pequena | **Comenta** na issue. Nunca edita em silêncio |
+| Alguém pegou, e o escopo mudou de verdade | **Fecha com o motivo e abre outra**, citando a fechada |
+| A mudança invalida coisa já mergeada | Issue nova, sempre |
+
+Editar o corpo em silêncio é o pior dos quatro, e é o que o GitHub faz por padrão: quem leu a
+issue na segunda e voltou na quinta não relê o enunciado.
+
+**O PR que muda a spec lista as issues abertas que ele afeta.** Se não afeta nenhuma, escreve
+"nenhuma" — é o mesmo hábito do "onde eu não tive certeza", que obriga a pensar no alcance.
+
+E o alcance varia muito por seção:
+
+| Mudou | Quebra |
+|---|---|
+| Seção 8, telas | o front |
+| Seção 5, regras de negócio | em geral só o back |
+| **Seção 6, API** | **os dois, e em silêncio** |
+
+A seção 6 é o contrato que sustenta o trabalho em paralelo. Enquanto houver issue aberta,
+**prefira mudança aditiva** — campo novo opcional, `code` de erro novo — à que quebra.
+Renomear um campo custa duas pessoas, não uma.
+
+### Quem corrige a spec quando o buraco aparece no código
+
+- **Buraco que dá para resolver sozinho** — redação ambígua, um `code` de erro que faltou:
+  mesmo PR, como diz a regra geral.
+- **Decisão de domínio de verdade** — precisa perguntar ao pastor ou à secretaria: é do
+  mantenedor, e a spec merga **antes**, em PR próprio. Outras issues em voo podem depender da
+  mesma resposta, e decisão de domínio enterrada no PR de um voluntário é invisível para as
+  outras pessoas.
 
 ## Pegando uma tarefa
 

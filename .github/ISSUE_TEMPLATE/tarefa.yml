@@ -31,7 +31,7 @@ body:
     attributes:
       label: Spec e seção
       description: De onde esta tarefa sai
-      placeholder: "docs/specs/0001-pessoa.md, seção 6 — API"
+      placeholder: "docs/specs/0001-pessoas.md, seção 6 — API"
     validations:
       required: true
 
