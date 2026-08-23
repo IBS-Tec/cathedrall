@@ -60,7 +60,7 @@ trabalhando ao mesmo tempo, e ninguém trabalha contra um arquivo que não está
 1. Mantenedor escreve a spec       branch docs/spec-0001-pessoas
 2. PR da spec, revisado, mergeado  → agora existe em main
 3. Seção 11 vira N issues          cada uma cita "spec 0001, seção X"
-4. Voluntário comenta "peguei"     branch feat/42-cadastro-de-pessoa
+4. Mantenedor atribui a issue      voluntário abre feat/42-cadastro-de-pessoa
 5. PR resolve #42                  spec atualizada no mesmo PR, se mudou
 ```
 
@@ -71,14 +71,14 @@ verdade, e duas fontes de verdade sempre divergem.
 
 ### Quando a spec muda no meio do desenvolvimento
 
-A spec é viva, então ela vai mudar com issue aberta. O que decide o que fazer é **se alguém já
-pegou** — e o sinal é o comentário de "peguei" que esta página pede.
+A spec é viva, então ela vai mudar com issue aberta. O que decide o que fazer é **se a issue
+já está atribuída** — o campo *Assignees* é o sinal.
 
 | Situação | O que fazer |
 |---|---|
-| Ninguém comentou que pegou | Edita o corpo da issue. Livre |
-| Alguém pegou, mudança pequena | **Comenta** na issue. Nunca edita em silêncio |
-| Alguém pegou, e o escopo mudou de verdade | **Fecha com o motivo e abre outra**, citando a fechada |
+| Sem assignee | Edita o corpo da issue. Livre |
+| Atribuída, mudança pequena | **Comenta** na issue. Nunca edita em silêncio |
+| Atribuída, e o escopo mudou de verdade | **Fecha com o motivo e abre outra**, citando a fechada e atribuindo à mesma pessoa |
 | A mudança invalida coisa já mergeada | Issue nova, sempre |
 
 Editar o corpo em silêncio é o pior dos quatro, e é o que o GitHub faz por padrão: quem leu a
@@ -108,16 +108,29 @@ Renomear um campo custa duas pessoas, não uma.
   mesma resposta, e decisão de domínio enterrada no PR de um voluntário é invisível para as
   outras pessoas.
 
-## Pegando uma tarefa
+## Recebendo uma tarefa
+
+**Quem desenvolve cada issue é o mantenedor que define, e o sinal é o campo *Assignees* do
+GitHub.** Não é ordem de chegada, não é comentário. Issue sem assignee não está livre para
+pegar: está esperando decisão.
+
+Isso é diferente do "pegue o que quiser" de muitos projetos, e a razão é a mesma que fez a
+spec vir antes das issues. Boa parte delas está **bloqueada** por outra — o GitHub sabe disso,
+e a busca `is:open -is:blocked` mostra só o que está liberado. Mas liberado não é o mesmo que
+adequado: qual tarefa prepara o terreno para a próxima, qual é grande demais para quem chegou
+esta semana, qual vai mudar quando a spec mudar — isso não está no quadro.
 
 - **Uma issue por pessoa de cada vez.** Quem tem três coisas abertas entrega zero.
-- Comente na issue antes de começar, para ninguém trabalhar duas vezes no mesmo.
+- **Não comece antes de a issue estar atribuída a você.** Trabalho não atribuído é trabalho
+  que pode estar sendo feito duas vezes, ou jogado fora.
 - Se travar por mais de um dia, comente na issue dizendo onde travou. Travar é normal;
   sumir é o que quebra o projeto.
 - Se a issue não passa na Definição de Pronta abaixo, devolva. Não adivinhe.
+- **Se você quer trabalhar em algo específico, peça.** A decisão é do mantenedor, mas a
+  vontade de quem vai codar pesa: ninguém entrega bem o que não quis pegar.
 
-Procurando por onde entrar? A label `boa primeira tarefa` marca as que não dependem de
-conhecer o resto do sistema.
+A label `boa primeira tarefa` marca as que não dependem de conhecer o resto do sistema — ela
+existe para o mantenedor saber o que oferecer a quem chegou agora.
 
 ## Branch, commit e PR
 
@@ -142,7 +155,7 @@ passa a ser aprovado no olho, e aí o review deixou de servir para alguma coisa.
 
 ## Definição de Pronta
 
-Uma issue só pode ser pegada quando **todas** valem:
+Uma issue só pode ser atribuída quando **todas** valem:
 
 - [ ] Título no imperativo, descrevendo o resultado (`Cadastrar pessoa com vínculo inicial`).
 - [ ] Aponta para a seção da spec que a origina.
