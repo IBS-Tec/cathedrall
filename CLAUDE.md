@@ -44,6 +44,10 @@ Estas regras não são preferência de estilo; violá-las quebra a arquitetura.
 - Vertical slices dos dois lados: `apps/api/src/Modules/CathedrAll.<Modulo>/` e
   `apps/admin/src/modules/<modulo>/` se espelham. A pasta contêiner é `Modules`, em inglês;
   a fatia dentro dela é português ([ADR-0016](docs/adr/0016-modules-como-nome-da-pasta-conteiner.md)).
+- **Nenhum `Guid` cru dentro de um módulo.** Todo identificador de agregado ou entidade é um
+  `readonly record struct` próprio, declarado no módulo que o usa — inclusive os que apontam
+  para outro módulo. `Guid` volta a aparecer só em `Endpoints/` e na fronteira entre módulos
+  ([ADR-0017](docs/adr/0017-ids-fortemente-tipados.md)).
 - Nada de pastas genéricas por tipo técnico (`Services/`, `Repositories/`, `DTOs/`).
 - Nada de segredo versionado. Só `.env.example`.
 

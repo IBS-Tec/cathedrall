@@ -5,9 +5,13 @@
     <Project Path="src/Kernel/CathedrAll.Kernel.Domain/CathedrAll.Kernel.Domain.csproj" />
     <Project Path="src/Kernel/CathedrAll.Kernel.Infrastructure/CathedrAll.Kernel.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/CathedrAll.Pessoas/CathedrAll.Pessoas.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CathedrAll.Api.Tests/CathedrAll.Api.Tests.csproj" />
     <Project Path="tests/CathedrAll.Kernel.Application.Tests/CathedrAll.Kernel.Application.Tests.csproj" />
+    <Project Path="tests/CathedrAll.Pessoas.Tests/CathedrAll.Pessoas.Tests.csproj" />
     <Project Path="tests/CathedrAll.Kernel.Domain.Tests/CathedrAll.Kernel.Domain.Tests.csproj" />
     <Project Path="tests/CathedrAll.Kernel.Infrastructure.Tests/CathedrAll.Kernel.Infrastructure.Tests.csproj" />
   </Folder>

@@ -1,12 +1,19 @@
 using System.Diagnostics;
 using CathedrAll.Api;
 using CathedrAll.Kernel.Application;
+using CathedrAll.Pessoas;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddKernelApplication();
 builder.Services.AddLoggingBehavior();
+
+builder.Services.AddPessoasModule(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString(PostgresHealthCheck.ConnectionName),
+        npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "pessoas")));
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
