@@ -2,16 +2,19 @@
 
 .NET 10, ASP.NET Core, Minimal API. Domínio: `api.ibscristo.com.br`.
 
-> **Estado: host, kernel, mediator, formato de erro e o anel de transação.** Existem o host
+> **Estado: host, kernel, mediator, formato de erro, o anel de transação e o módulo
+> `Pessoas`.** Existem o host
 > com `/health`, a configuração de build, o kernel de domínio — `Result`, `Error`,
 > `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` —, o mediator com dois behaviors, o de
 > log e o de transação, e os dois pontos de conversão da fronteira HTTP descritos em
 > [Formato de erro](#formato-de-erro). O kernel está em
-> [`src/Kernel/README.md`](src/Kernel/README.md). **O anel de transação existe e nada o
-> registra:** ele depende de um `DbContext`, e não há módulo para fornecê-lo. Nenhum módulo,
-> nenhum banco alcançado pela aplicação, nenhuma migration, nenhuma autenticação, nenhum
-> handler de requisição. A API está sendo reconstruída do zero, em passos pequenos. Este
-> README descreve só o que já existe — se algo não estiver aqui, não foi construído ainda.
+> [`src/Kernel/README.md`](src/Kernel/README.md). **O primeiro módulo existe:**
+> `CathedrAll.Pessoas`, com o `PessoasDbContext` no schema `pessoas`, as entidades mapeadas
+> e a migration inicial aplicável num banco limpo — **estado e mapeamento, sem regra de
+> negócio**. Não existe handler, endpoint, autenticação, nem invariante de domínio, e **o
+> anel de transação continua sem quem o registre**. A API está sendo reconstruída do zero,
+> em passos pequenos. Este README descreve só o que já existe — se algo não estiver aqui,
+> não foi construído ainda.
 
 ## Comandos
 
@@ -21,6 +24,32 @@ dotnet build
 dotnet test
 dotnet run --project src/Bootstrapper/CathedrAll.Api
 ```
+
+Migrations, com a ferramenta fixada em `.config/dotnet-tools.json`:
+
+```bash
+dotnet tool restore
+
+dotnet ef migrations add <Nome> \
+  --project src/Modules/CathedrAll.Pessoas \
+  --startup-project src/Bootstrapper/CathedrAll.Api \
+  --context PessoasDbContext
+
+dotnet ef database update \
+  --project src/Modules/CathedrAll.Pessoas \
+  --startup-project src/Bootstrapper/CathedrAll.Api \
+  --context PessoasDbContext
+```
+
+O `--context` é obrigatório a partir do segundo módulo e está aqui desde já para o comando
+não mudar depois. A connection string vem de `ConnectionStrings:CathedrAll` — não é
+versionada, então exporte-a antes:
+
+```bash
+export ConnectionStrings__CathedrAll="Host=localhost;Port=5432;Database=cathedrall;Username=…;Password=…"
+```
+
+O usuário e a senha estão em `infra/compose/.env`, criados pelo `initdb/01-bancos.sh`.
 
 ## Endpoints
 
@@ -246,8 +275,62 @@ O destino é o monólito modular estrito do
 [ADR-0012](../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md): um
 projeto por módulo, e **módulos não se referenciam** — conversam por contratos e eventos
 no kernel compartilhado. Isso torna a fronteira uma garantia de compilação, não uma
-convenção que alguém precisa lembrar. Do destino existe só o começo do kernel — nenhum
-módulo foi escrito.
+convenção que alguém precisa lembrar. Do destino existem o kernel e o primeiro módulo,
+`CathedrAll.Pessoas`.
+
+## O módulo `Pessoas`
+
+`src/Modules/CathedrAll.Pessoas/`, com as pastas do ADR-0012. Hoje só `Domain/` e
+`Infrastructure/` têm conteúdo — `Application/` e `Endpoints/` aparecem quando houver o quê
+pôr nelas.
+
+**Todo tipo do módulo é `internal`, com uma exceção: `AddPessoasModule`.** É por ela que o
+host compõe o módulo, e é tudo o que ele enxerga — nem o `PessoasDbContext` nem `Pessoa`
+são alcançáveis de fora. Quem escolhe provider e connection string é o `Program.cs`; o
+módulo recebe a configuração como lambda e acrescenta a convenção de nome
+([ADR-0015](../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md)).
+
+**Nenhum `Guid` cru atravessa o `Domain/`:** `PessoaId` e `VinculoIgrejaId` são
+`readonly record struct`, com um `ValueConverter` de uma linha cada
+([ADR-0017](../../docs/adr/0017-ids-fortemente-tipados.md)). `Celular` e `Email` são objetos
+de valor e usam o mesmo padrão de conversor.
+
+**As entidades são estado e mapeamento, sem comportamento.** Não há fábrica, invariante nem
+método de transição — eles vêm nas tarefas seguintes, e separá-los é o que fez a migration
+nascer antes de qualquer regra poder atrasá-la. Uma consequência disso é visível no código:
+as propriedades opcionais são `{ get; init; }`, e não `{ get; private set; }`, porque o
+Sonar recusa setter privado sem chamador (`S1144`) e o build trata aviso como erro. Elas
+viram `private set` quando os métodos existirem.
+
+### Duas armadilhas do EF que custaram tempo
+
+**O EF só mapeia propriedade que consegue escrever.** `{ get; }` puro não conta — o
+*backing field* que o compilador gera é `readonly`. Sem parâmetro de construtor de mesmo
+nome, a coluna **some do modelo em silêncio**, com build verde; com parâmetro, o tipo
+inteiro é recusado em tempo de execução. `Id` é a exceção, e só porque o `HasKey` força a
+propriedade a entrar no modelo.
+
+**O código gerado pelo `dotnet ef` não passa nos analisadores daqui.** `IDE0161`, `IDE0053`
+e `CA1861` disparam em toda migration, e com `TreatWarningsAsErrors` isso é build vermelho.
+O `.editorconfig` marca `[**/Migrations/*.cs] generated_code = true`, que faz todo
+analisador ignorá-las — em vez de silenciar uma regra por vez a cada `migrations add`.
+
+### O schema
+
+Schema `pessoas`, com o `__EFMigrationsHistory` dentro dele. Tabelas e colunas em
+`snake_case`, via `EFCore.NamingConventions`: o default do EF no PostgreSQL é PascalCase
+entre aspas, o que obriga a citar identificador em toda query escrita à mão no `psql`.
+
+`Situacao` e `EstadoCivil` são gravados como **texto**, não como inteiro. Custa alguns bytes
+e paga na leitura direta do banco — e o modo de falha é alto: renomear um membro do enum
+estoura na materialização, enquanto com inteiro reordenar valores mudaria o significado de
+toda linha existente sem erro nenhum.
+
+**Só `nome` é `NOT NULL`**, e **não existe restrição de unicidade em coluna nenhuma** — a
+ficha não tem CPF nem documento, e duplicata se resolve com fusão, não com constraint.
+`convidado_por_id` e `fundida_em_id` são `uuid` sem chave estrangeira e sem propriedade de
+navegação. As colunas de auditoria **não existem ainda**: elas chegam com o interceptor que
+as escreve ([ADR-0018](../../docs/adr/0018-auditoria-fora-da-entidade.md)).
 
 ## Build
 
@@ -278,7 +361,7 @@ cada save.
 Dado de membro de igreja é dado pessoal sensível (LGPD). Nada disso é backlog — vem antes
 do primeiro endpoint que toque em `Pessoa`:
 
-- [x] **Transação por requisição** — o anel existe; falta um módulo registrá-lo
+- [x] **Transação por requisição** — o anel existe; `Pessoas` ainda não o registra
 - [ ] **Audit log** por `SaveChangesInterceptor`, em tabela append-only
 - [ ] **Soft delete** com filtro global de consulta
 - [ ] **RBAC com escopo** — líder enxerga apenas o próprio departamento

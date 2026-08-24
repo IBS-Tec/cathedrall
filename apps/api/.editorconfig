@@ -290,3 +290,9 @@ dotnet_diagnostic.CA2327.severity = none
 
 # IDE0046: Convert to conditional expression (return)
 dotnet_diagnostic.IDE0046.severity = none
+
+# Migrations são geradas pelo `dotnet ef` e não seguem o estilo do repositório.
+# Marcá-las como código gerado faz todo analisador ignorá-las, em vez de silenciar
+# uma regra por vez a cada `migrations add`.
+[**/Migrations/*.cs]
+generated_code = true
