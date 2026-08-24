@@ -4,14 +4,13 @@ O kernel compartilhado do [ADR-0012](../../../../docs/adr/0012-monolito-modular-
 Guarda os blocos de construção que os módulos usam e **não conhece módulo nenhum**.
 
 > **Estado: o `Result`, os blocos de DDD, o mediator e dois behaviors.**
-> `CathedrAll.Kernel.Domain` tem `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`,
-> `DomainEvent`, `IAuditable` e `ISoftDeletable`. `CathedrAll.Kernel.Application` tem o
-> mediator — `ISender`, `IRequest`, `IRequestHandler`, `IPipelineBehavior` —, o
-> `LoggingBehavior` e o registro de DI. `CathedrAll.Kernel.Infrastructure` tem o
-> `TransactionBehavior`. **Os behaviors escritos são o de log e o de transação:** não existe
-> validação, nem autorização, nem interceptor de auditoria, e nenhum módulo registra o anel
-> de transação ainda, porque não existe módulo. Este README descreve só o que já está
-> escrito.
+> `CathedrAll.Kernel.Domain` tem `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`
+> e `DomainEvent`. `CathedrAll.Kernel.Application` tem o mediator — `ISender`, `IRequest`,
+> `IRequestHandler`, `IPipelineBehavior` —, o `LoggingBehavior` e o registro de DI.
+> `CathedrAll.Kernel.Infrastructure` tem o `TransactionBehavior`. **Os behaviors escritos
+> são o de log e o de transação:** não existe validação, nem autorização, nem interceptor
+> de auditoria, e nenhum módulo registra o anel de transação ainda, porque não existe
+> módulo. Este README descreve só o que já está escrito.
 
 ## Os três projetos
 
@@ -313,12 +312,8 @@ classe ou ao subir a versão do assembly.
 
 ### Não existem `IEntity<TId>` nem `IAggregateRoot<TId>`
 
-As interfaces do kernel são não-genéricas, e cada uma tem um consumidor nomeado:
-
-| Interface | Quem consome |
-| --- | --- |
-| `IAuditable` | o interceptor de auditoria varrendo o `ChangeTracker` |
-| `IAggregateRoot` | o dispatcher de eventos varrendo o `ChangeTracker` |
+A única interface do kernel é `IAggregateRoot`, não-genérica, e ela tem um consumidor
+nomeado: o dispatcher de eventos varrendo o `ChangeTracker`.
 
 As versões genéricas existiram por um tempo e não tinham consumidor: ninguém escreve
 `IEntity<Guid> p` quando pode escrever `Pessoa`. Cobravam covariância (`out TId`, exigida
@@ -327,20 +322,39 @@ restrição, ela funciona igual escrita sobre a classe: `where T : AggregateRoot
 
 ## Auditoria e exclusão lógica
 
-`IAuditable` está em toda `Entity`. `ISoftDeletable` é opt-in, agregado por agregado.
+**Nenhum carimbo de auditoria mora na entidade** ([ADR-0018](../../../../docs/adr/0018-auditoria-fora-da-entidade.md)).
+`Entity<TId>` tem identidade e igualdade, e mais nada. As colunas existem no banco como
+*shadow properties* declaradas no `DbContext` do módulo — sem propriedade no tipo CLR:
 
-A diferença não é estilo. Exclusão lógica implica *global query filter* no EF, e filtro em
-toda tabela significa passar tardes desligando aviso de navegação obrigatória para
-entidade filtrada. Fora que nem tudo merece: linha de escala cancelada some, não vira
-lápide. Opt-in também obriga a pergunta a ser respondida agregado por agregado, que é o
-que uma revisão de LGPD quer ver documentado.
+```csharp
+builder.Entity<Pessoa>().Property<DateTimeOffset>("CreatedAt");
+```
 
-`ISoftDeletable` não tem `bool IsDeleted`: `DeletedAt is not null` já responde e ainda diz
-**quando**. Dois campos para a mesma verdade é uma chance de eles discordarem.
+O interceptor as escreve pelo modelo, não pelo tipo:
+
+```csharp
+entry.Property("CreatedAt").CurrentValue = DateTimeOffset.UtcNow;
+```
+
+Existiam `IAuditable` e `ISoftDeletable`, com as quatro propriedades em toda `Entity`. Foram
+removidas por três motivos, e o ADR-0018 os desenvolve: setter público numa raiz de agregado;
+carimbo técnico não é linguagem ubíqua — ninguém na igreja pergunta quem criou um registro —;
+e a interface existia só para o interceptor achar o tipo, coisa de que o `ChangeTracker`
+nunca precisou.
+
+**Exclusão lógica continua opt-in, agregado por agregado.** A diferença não é estilo: filtro
+global em toda tabela significa passar tardes desligando aviso de navegação obrigatória para
+entidade filtrada, e nem tudo merece — linha de escala cancelada some, não vira lápide.
+Opt-in obriga a pergunta a ser respondida um a um, que é o que uma revisão de LGPD quer ver
+documentado. Mudou **onde a resposta se lê**: era `grep ISoftDeletable`, passa a ser a
+configuração do contexto.
+
+Não existe `IsDeleted`: `DeletedAt is not null` já responde e ainda diz **quando**. Dois
+campos para a mesma verdade é uma chance de eles discordarem.
 
 ### O que cada nulo significa
 
-| Campo | Nulo quer dizer |
+| Coluna | Nulo quer dizer |
 | --- | --- |
 | `CreatedAt` | nunca é nulo — o interceptor preenche no insert |
 | `CreatedBy` | ação do sistema: migration, seed, job agendado, importação |
@@ -355,6 +369,10 @@ reconfigurar o provedor para emitir e-mail e você espalhou dado pessoal identif
 toda tabela do sistema — inclusive as que a revisão de LGPD classificou como impessoais.
 Ninguém revisa `CreatedBy` procurando PII. Se o `sub` do IdP não for GUID, quem guarda o
 `sub` é a tabela de usuários; a chave continua `Guid`.
+
+Esse `Guid` **não entra no domínio**. Quando o interceptor existir, ele lê o ator de uma
+abstração em `Kernel.Application`, e é lá que o tipo mora — por isso o
+[ADR-0017](../../../../docs/adr/0017-ids-fortemente-tipados.md) não precisa de exceção.
 
 ### Estas colunas não são o audit log
 
@@ -394,7 +412,10 @@ E o audit log vai conter valores antigos de campos de `Pessoa`: ele é tão sens
 a tabela original e precisa da mesma proteção e da mesma retenção. Audit log irrestrito é
 vazamento com carimbo de conformidade.
 
-Nenhum interceptor existe ainda.
+Nenhum interceptor existe ainda, e por isso **nenhuma coluna de auditoria existe ainda**:
+elas entram na migration que acompanhar o interceptor, não antes
+([ADR-0018](../../../../docs/adr/0018-auditoria-fora-da-entidade.md)). Coluna que nada
+escreve é aforância falsa, e `CreatedAt` sem interceptor gravaria `0001-01-01` em silêncio.
 
 ## O mediator
 

@@ -1,17 +1,9 @@
 namespace CathedrAll.Kernel.Domain;
 
-public abstract class Entity<TId>(TId id) : IAuditable
+public abstract class Entity<TId>(TId id)
     where TId : notnull
 {
     public TId Id { get; } = id;
-
-    public DateTimeOffset CreatedAt { get; set; }
-
-    public Guid? CreatedBy { get; set; }
-
-    public DateTimeOffset? LastModifiedAt { get; set; }
-
-    public Guid? LastModifiedBy { get; set; }
 
 #pragma warning disable S3875
     public static bool operator ==(Entity<TId>? left, Entity<TId>? right) =>
