@@ -28,3 +28,4 @@ de biblioteca de máscara de CPF.
 | [0014](0014-problem-details-como-formato-unico-de-erro.md) | ProblemDetails como formato único de erro da API | Aceito |
 | [0015](0015-um-dbcontext-e-migrations-por-modulo.md) | Um `DbContext` e um conjunto de migrations por módulo | Aceito |
 | [0016](0016-modules-como-nome-da-pasta-conteiner.md) | `Modules/` como nome da pasta contêiner dos módulos | Aceito |
+| [0017](0017-ids-fortemente-tipados.md) | Ids fortemente tipados como padrão de todos os módulos | Aceito |
