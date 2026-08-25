@@ -1,3 +1,5 @@
+using CathedrAll.Kernel.Application;
+using CathedrAll.Kernel.Domain;
 using CathedrAll.Pessoas.Domain;
 using CathedrAll.Pessoas.Infrastructure;
 using Microsoft.Data.Sqlite;
@@ -12,7 +14,7 @@ internal static class Scenario
     public static IRelationalModel ModeloRelacional()
     {
         ServiceCollection services = new();
-        services.AddPessoasModule(options =>
+        services.AddPessoasDbContext(options =>
             options.UseNpgsql("Host=modelo;Database=modelo"));
 
         using ServiceProvider provider = services.BuildServiceProvider();
@@ -43,9 +45,56 @@ internal static class Scenario
     public static ServiceProvider Provedor(SqliteConnection connection)
     {
         ServiceCollection services = new();
-        services.AddPessoasModule(options => options.UseSqlite(connection));
+        services.AddPessoasDbContext(options => options.UseSqlite(connection));
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    public static ServiceProvider ProvedorComAnel(
+        SqliteConnection connection,
+        Action<IServiceCollection> register)
+    {
+        ServiceCollection services = new();
+
+        services.AddKernelApplication();
+        services.AddPessoasDbContext(options => options.UseSqlite(connection));
+        services.AddPessoasTransactionBehavior();
+        register(services);
+
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    public static async Task<Result<PessoaId>> EnviarComandoAsync(
+        ServiceProvider provider,
+        string nome)
+    {
+        using IServiceScope scope = provider.CreateScope();
+
+        return await scope.ServiceProvider
+            .GetRequiredService<ISender>()
+            .SendAsync<FakeWriteCommand, Result<PessoaId>>(
+                new FakeWriteCommand(nome),
+                CancellationToken.None);
+    }
+
+    public static async Task<int> EnviarConsultaAsync(ServiceProvider provider, string nome)
+    {
+        using IServiceScope scope = provider.CreateScope();
+
+        return await scope.ServiceProvider
+            .GetRequiredService<ISender>()
+            .SendAsync<FakeReadQuery, int>(new FakeReadQuery(nome), CancellationToken.None);
+    }
+
+    public static async Task<int> ContarPessoasAsync(SqliteConnection connection)
+    {
+        await using ServiceProvider provider = Provedor(connection);
+        using IServiceScope scope = provider.CreateScope();
+
+        return await scope.ServiceProvider
+            .GetRequiredService<PessoasDbContext>()
+            .Pessoas
+            .CountAsync();
     }
 
     public static async Task<PessoaId> GravarAsync(ServiceProvider provider, Pessoa pessoa)
