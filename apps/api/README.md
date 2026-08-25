@@ -12,9 +12,10 @@
 > `CathedrAll.Pessoas`, com o `PessoasDbContext` no schema `pessoas`, as entidades mapeadas
 > e a migration inicial aplicável num banco limpo — **estado e mapeamento, sem regra de
 > negócio**. Não existe handler, endpoint, autenticação, nem invariante de domínio, e **o
-> anel de transação continua sem quem o registre**. A API está sendo reconstruída do zero,
-> em passos pequenos. Este README descreve só o que já existe — se algo não estiver aqui,
-> não foi construído ainda.
+> anel de transação continua sem quem o registre**. Existe `ICurrentUser`, com implementação
+> de desenvolvimento — e ela **não é autenticação**, ver [Usuário atual](#usuário-atual).
+> A API está sendo reconstruída do zero, em passos pequenos. Este README descreve só o que já
+> existe — se algo não estiver aqui, não foi construído ainda.
 
 ## Comandos
 
@@ -103,6 +104,13 @@ Para começar, copie o exemplo e preencha a senha — a mesma `APP_DB_PASSWORD` 
 ```bash
 cp src/Bootstrapper/CathedrAll.Api/appsettings.Development.json{.example,}
 ```
+
+`CurrentUser:Id` e `CurrentUser:Papel` — o usuário fictício de desenvolvimento, descrito em
+[Usuário atual](#usuário-atual). Os dois têm default, então a API sobe sem configuração
+nenhuma. Trocar o papel para ver o sistema como a recepção o vê é uma linha no
+`appsettings.Development.json`, ou `CurrentUser__Papel=Recepcao` no ambiente, e vale a partir
+da requisição seguinte — sem reiniciar. Em produção a seção é ignorada, porque lá não há
+implementação de desenvolvimento para configurar.
 
 ## Formato de erro
 
@@ -198,6 +206,45 @@ Development por padrão — o teste veria HTML em vez de problem+json. A saída 
 no corpo — mas não através de um endpoint real, porque nenhum devolve `Result` ainda. O
 primeiro módulo é quem fecha essa lacuna.
 
+## Usuário atual
+
+`ICurrentUser`, em `Kernel.Application`, responde "quem está fazendo isto": um `Guid Id` e um
+`Papel`. Nada além disso.
+
+**Isto não é autenticação.** Não existe login, token nem sessão, e nada nesta API verifica
+quem quer que seja. O que existe é a **porta**: um contrato do qual todo handler depende
+desde o primeiro, para que o interceptor de auditoria tenha de onde tirar "quem fez" e para
+que a autenticação de verdade entre por baixo sem tocar em handler nenhum. É por isso que o
+contrato não fala em JWT, claim ou cookie — se falasse, trocar a implementação mudaria quem
+depende dela.
+
+**O portão da seção 7 da Spec-0001 continua inteiro:** nenhum dado de pessoa real entra em
+banco nenhum — inclusive o de desenvolvimento — antes de autenticação e audit log existirem.
+`ICurrentUser` é o que aquela seção chama de barato agora e caro depois; ele não antecipa um
+milímetro do portão, e **a matriz de papéis da seção 7 não está aplicada a rota nenhuma**.
+
+Quem implementa hoje é o `DevelopmentCurrentUser`, que mora no host e não no kernel, de
+propósito: o host é o único assembly que ninguém referencia, então "não existe código em
+produção capaz de instanciar isto" vira topologia em vez de convenção. Ele entra apenas
+quando o ambiente é `Development`, e a escolha fica visível no `Program.cs`:
+
+```csharp
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddDevelopmentCurrentUser(builder.Configuration);
+}
+
+// ...
+
+builder.Services.RequireCurrentUser();
+```
+
+A última linha é o portão do host, e ela pergunta **se existe alguma implementação
+registrada** — não que ambiente é este. A diferença aparece no futuro: hoje isso significa
+que produção não sobe; no dia em que o módulo de acesso registrar um adapter de verdade, a
+linha para de disparar sozinha, sem ninguém remover nada. E um ambiente novo qualquer, um
+`Staging`, falha ao subir em vez de herdar usuário fictício em silêncio.
+
 ## Estrutura
 
 ```
@@ -209,7 +256,8 @@ src/
                                           trata a exceção não capturada
   Kernel/
     CathedrAll.Kernel.Domain/             Result, Error, ErrorType, Entity
-    CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior
+    CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior,
+                                          ICurrentUser
     CathedrAll.Kernel.Infrastructure/     TransactionBehavior
 tests/
   CathedrAll.Api.Tests/                   testes do host: integração e mapeamento
@@ -362,6 +410,7 @@ Dado de membro de igreja é dado pessoal sensível (LGPD). Nada disso é backlog
 do primeiro endpoint que toque em `Pessoa`:
 
 - [x] **Transação por requisição** — o anel existe; `Pessoas` ainda não o registra
+- [x] **Usuário atual** — `ICurrentUser`, com implementação de desenvolvimento
 - [ ] **Audit log** por `SaveChangesInterceptor`, em tabela append-only
 - [ ] **Soft delete** com filtro global de consulta
 - [ ] **RBAC com escopo** — líder enxerga apenas o próprio departamento
