@@ -46,7 +46,7 @@ congrega, quantos membros a igreja tem de verdade.
 | Membro | Vínculo vigente com `Situacao = Membro` | |
 | Afastado | `ReconhecerAfastamento` | Registra o **reconhecimento** da igreja, não o dia em que a pessoa sumiu |
 | Transferido | `RegistrarTransferencia` | Saiu em boa ordem, com carta. Diferente de afastado, e a diferença não se recupera depois |
-| Aniversariantes da semana | consulta sobre `DataNascimento` e `DataCasamento` | Nascimento **e** casamento. Lida no culto de domingo |
+| Aniversariantes da semana | consulta sobre `DataNascimento` e `DataCasamento` | Nascimento **e** casamento, em duas listas — nascimento primeiro. Lida no culto de domingo |
 
 A tela nunca diz "efetivar membro" nem "criar vínculo". Diz "registrar apresentação".
 
@@ -418,6 +418,11 @@ em vez de apagar.
 
 Compara dia e mês, ignorando o ano. Exclui `Falecido` e `Transferido` (RN-25).
 
+**Uma lista só, ordenada por data, com `tipo` em cada item.** Quem separa nascimento de
+casamento é a tela (seção 8), porque a separação existe pela ordem em que o dirigente
+chama, e ordem de leitura é decisão de apresentação. A API que devolvesse dois arrays
+obrigaria toda tela futura a herdar essa escolha.
+
 **O item desta lista e o de `aniversariantes` na pauta são o mesmo componente do OpenAPI**,
 declarado uma vez e referenciado por `$ref` nas duas rotas. Não são duas formas que hoje
 coincidem: é o mesmo conceito, lido no mesmo domingo, pela mesma pessoa. Schema inline
@@ -602,7 +607,8 @@ mão, luz em cima, lendo em voz alta**. É diferente da recepção: a recepcioni
 mãos e erra em silêncio; o dirigente erra na frente de todo mundo.
 
 Daí três coisas. **Uma tela, não duas** — ninguém navega entre páginas no meio do culto: as
-duas listas ficam juntas, na ordem de leitura, com tipo grande. **Uma chamada só** (seção 6).
+listas ficam juntas, na ordem em que se fala — visitantes, aniversariantes de nascimento e,
+por último, os de casamento —, com tipo grande. **Uma chamada só** (seção 6).
 E **atualização por toque**, porque a recepção pode ter cadastrado alguém dois minutos atrás,
 durante o louvor: refaz a busca ao abrir e um botão de atualizar. Nada de tempo real.
 
@@ -611,8 +617,15 @@ porque é assim que se apresenta.
 
 ### `/aniversariantes`
 
-Padrão: a semana corrente, nascimento e casamento juntos, em ordem de data. É lida em voz
-alta num domingo de manhã, então precisa caber na tela de um celular e ser legível de longe.
+Padrão: a semana corrente, em **duas listas — nascimento primeiro, casamento depois**, cada
+uma em ordem de data. A ordem é a da fala: o dirigente chama os aniversariantes e só então os
+casais. Uma lista misturada obrigaria quem está com o microfone na mão a separar os dois com
+o olho, na frente da igreja.
+
+É lida em voz alta num domingo de manhã, então precisa caber na tela de um celular e ser
+legível de longe. Quando uma das duas está vazia e a outra não, a vazia some ou se diz vazia
+— o que não pode é a tela inteira parecer sem ninguém.
+
 É também a tela que dá a alguém razão para abrir o sistema toda semana — e, por isso, o que
 mantém o cadastro vivo.
 
@@ -718,7 +731,7 @@ Só é bloqueante a pergunta que muda o modelo.
       porque nenhuma delas precisa inventar o próprio jeito de falsear dado
 - [ ] [P] `/recepcao` contra dados falsos: busca, cadastro de dois campos e a pauta do dia
 - [ ] [P] `/pessoas` e `/pessoas/{id}` contra dados falsos: lista, ficha e histórico
-- [ ] [P] `/pauta` contra dados falsos: as duas listas, tipo grande, botão de atualizar
-- [ ] [P] `/aniversariantes` contra dados falsos
+- [ ] [P] `/pauta` contra dados falsos: as listas na ordem da fala, tipo grande, botão de atualizar
+- [ ] [P] `/aniversariantes` contra dados falsos: as duas listas, nascimento antes de casamento
 - [ ] Diálogos das cinco operações raras, a partir da ficha
 - [ ] Estados vazios e de erro da seção 8 — em especial a queda de rede na recepção
