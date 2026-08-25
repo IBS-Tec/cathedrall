@@ -11,8 +11,8 @@
 > [`src/Kernel/README.md`](src/Kernel/README.md). **O primeiro módulo existe:**
 > `CathedrAll.Pessoas`, com o `PessoasDbContext` no schema `pessoas`, as entidades mapeadas
 > e a migration inicial aplicável num banco limpo — **estado e mapeamento, sem regra de
-> negócio**. Não existe handler, endpoint, autenticação, nem invariante de domínio, e **o
-> anel de transação continua sem quem o registre**. Existe `ICurrentUser`, com implementação
+> negócio**. Não existe handler, endpoint, autenticação, nem invariante de domínio, mas **o
+> anel de transação já está registrado**, fechado sobre o `PessoasDbContext`. Existe `ICurrentUser`, com implementação
 > de desenvolvimento — e ela **não é autenticação**, ver [Usuário atual](#usuário-atual).
 > A API está sendo reconstruída do zero, em passos pequenos. Este README descreve só o que já
 > existe — se algo não estiver aqui, não foi construído ainda.
@@ -259,11 +259,16 @@ src/
     CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior,
                                           ICurrentUser
     CathedrAll.Kernel.Infrastructure/     TransactionBehavior
+  Modules/
+    CathedrAll.Pessoas/                   Pessoa, VinculoIgreja, PessoasDbContext,
+                                          migrations e o anel de transação do módulo
 tests/
   CathedrAll.Api.Tests/                   testes do host: integração e mapeamento
   CathedrAll.Kernel.Domain.Tests/         testes unitários do kernel de domínio
   CathedrAll.Kernel.Application.Tests/    testes unitários do mediator
   CathedrAll.Kernel.Infrastructure.Tests/ testes do anel de transação, sobre SQLite
+  CathedrAll.Pessoas.Tests/               mapeamento, materialização e o anel do
+                                          módulo, sobre SQLite
 ```
 
 O kernel compartilhado tem [README próprio](src/Kernel/README.md), com a regra que decide
@@ -275,16 +280,20 @@ O host é o único lugar que monta o pipeline, e ele fica visível no `Program.c
 ```csharp
 builder.Services.AddKernelApplication();
 builder.Services.AddLoggingBehavior();
+...
+builder.Services.AddPessoasTransactionBehavior();
 ```
 
-A segunda linha é opcional por desenho — **a ordem das linhas é a ordem dos anéis**, e
-escondê-la dentro do registro do mediator tiraria do `Program.cs` a única visão que existe
-do pipeline inteiro. O porquê de cada anel ficar onde fica está no README do kernel.
+Nenhuma das linhas de anel é obrigatória para o mediator funcionar, e isso é de propósito —
+**a ordem das linhas é a ordem dos anéis**, e escondê-las dentro do registro do mediator
+tiraria do `Program.cs` a única visão que existe do pipeline inteiro. Log por fora,
+transação colada no handler; o porquê de cada anel ficar onde fica está no README do kernel.
 
-**Falta aqui uma terceira linha, e ela chega com o primeiro módulo:** o registro do anel de
-transação, que precisa do `DbContext` do módulo para existir. O behavior já está escrito em
-`Kernel.Infrastructure`; quem o registra é o `Program.cs`, depois do anel de log, com a
-subclasse de três linhas que o [README do kernel](src/Kernel/README.md) mostra.
+O anel de transação chega por uma extensão do próprio módulo, e não por um `AddScoped` à
+mão, porque a subclasse que fecha o genérico sobre o `PessoasDbContext` é `internal` — o
+host não tem como nomeá-la. **A ordem, que o `Program.cs` sozinho não explica, está fixada
+por teste** em `CathedrAll.Api.Tests`: ele resolve o pipeline de verdade e afirma quantos
+anéis existem e qual é o mais interno.
 
 **Cada projeto de origem tem o próprio projeto de teste.** Um projeto de teste único
 precisaria referenciar todos os módulos, e seria o único assembly onde tipos de módulos
@@ -332,9 +341,12 @@ convenção que alguém precisa lembrar. Do destino existem o kernel e o primeir
 `Infrastructure/` têm conteúdo — `Application/` e `Endpoints/` aparecem quando houver o quê
 pôr nelas.
 
-**Todo tipo do módulo é `internal`, com uma exceção: `AddPessoasModule`.** É por ela que o
-host compõe o módulo, e é tudo o que ele enxerga — nem o `PessoasDbContext` nem `Pessoa`
-são alcançáveis de fora. Quem escolhe provider e connection string é o `Program.cs`; o
+**Todo tipo do módulo é `internal`, e o host enxerga só duas extensões de registro:
+`AddPessoasDbContext` e `AddPessoasTransactionBehavior`.** Nem o `PessoasDbContext`, nem
+`Pessoa`, nem a subclasse que fecha o anel de transação sobre o contexto são alcançáveis de
+fora. São duas linhas, e não uma, porque a ordem de registro é a ordem dos anéis — o
+raciocínio inteiro está no [README do kernel](src/Kernel/README.md). Quem escolhe provider e
+connection string é o `Program.cs`; o
 módulo recebe a configuração como lambda e acrescenta a convenção de nome
 ([ADR-0015](../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md)).
 
@@ -409,7 +421,7 @@ cada save.
 Dado de membro de igreja é dado pessoal sensível (LGPD). Nada disso é backlog — vem antes
 do primeiro endpoint que toque em `Pessoa`:
 
-- [x] **Transação por requisição** — o anel existe; `Pessoas` ainda não o registra
+- [x] **Transação por requisição** — o anel existe e `Pessoas` o registra
 - [x] **Usuário atual** — `ICurrentUser`, com implementação de desenvolvimento
 - [ ] **Audit log** por `SaveChangesInterceptor`, em tabela append-only
 - [ ] **Soft delete** com filtro global de consulta

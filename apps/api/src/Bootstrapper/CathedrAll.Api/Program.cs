@@ -15,10 +15,11 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddDevelopmentCurrentUser(builder.Configuration);
 }
 
-builder.Services.AddPessoasModule(options =>
+builder.Services.AddPessoasDbContext(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString(PostgresHealthCheck.ConnectionName),
         npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "pessoas")));
+builder.Services.AddPessoasTransactionBehavior();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 

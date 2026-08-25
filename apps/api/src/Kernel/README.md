@@ -9,8 +9,8 @@ Guarda os blocos de construção que os módulos usam e **não conhece módulo n
 > `IRequestHandler`, `IPipelineBehavior` —, o `LoggingBehavior`, o `ICurrentUser` e o
 > registro de DI. `CathedrAll.Kernel.Infrastructure` tem o `TransactionBehavior`.
 > **Os behaviors escritos são o de log e o de transação:** não existe validação, nem
-> autorização, nem interceptor de auditoria, e nenhum módulo registra o anel de transação
-> ainda, porque não existe módulo. **E `ICurrentUser` não é autenticação** — é a porta que
+> autorização, nem interceptor de auditoria. O anel de transação está **registrado**, fechado
+> sobre o `PessoasDbContext` — `Pessoas` é o único módulo com `DbContext`. **E `ICurrentUser` não é autenticação** — é a porta que
 > ela vai preencher. Este README descreve só o que já está escrito.
 
 ## Os três projetos
@@ -21,10 +21,16 @@ Guarda os blocos de construção que os módulos usam e **não conhece módulo n
 | `CathedrAll.Kernel.Application` | o mediator, o contrato dos behaviors, o `LoggingBehavior` e o `ICurrentUser` | `Kernel.Domain` |
 | `CathedrAll.Kernel.Infrastructure` | o `TransactionBehavior` | `Kernel.Application` |
 
-O ADR-0012 esboçou um `CathedrAll.Kernel` único. São vários porque a seta importa: a camada
-`Domain` de um módulo referencia apenas `Kernel.Domain`, e aí **a entidade não alcança o
-mediator nem por acidente**. Num projeto só, isso seria convenção que alguém precisa
-lembrar — exatamente o que o ADR-0012 gastou um projeto por módulo para evitar.
+O ADR-0012 esboçou um `CathedrAll.Kernel` único. São vários porque a seta importa: um módulo
+que não persiste nada referencia apenas `Kernel.Domain`, e aí **a entidade não alcança o
+mediator nem por acidente**.
+
+**Num módulo com `DbContext` essa garantia enfraquece, e quem revisa precisa saber.** O anel de
+transação obriga o projeto do módulo a referenciar `Kernel.Infrastructure`, que arrasta
+`Kernel.Application` junto. É o caso de `Pessoas`: `Domain/Pessoa.cs` **compila** se alguém
+escrever `ISender` lá dentro. O que era trava de compilação virou regra de revisão, e devolvê-la
+custaria quebrar cada módulo em três projetos — preço que não vale a pena pagar antes de o
+problema aparecer de verdade.
 
 **`Kernel.Domain` nunca ganha `PackageReference`.** Nem ORM, nem serializador, nem
 validador. É fácil de verificar em revisão: o `.csproj` continua vazio. No dia em que ele
@@ -561,9 +567,12 @@ Fica no `Program.cs` **de propósito**: dentro do `AddKernelApplication` seria d
 composição escondida numa biblioteca — quem lê o `Program.cs` veria o mediator e não veria
 o pipeline.
 
-Cada behavior do kernel expõe a própria extensão (`AddLoggingBehavior()`); behavior de
-módulo se registra na mão, com `AddScoped(typeof(IPipelineBehavior<,>), typeof(...))`. As
-extensões do kernel usam `TryAddEnumerable`, então chamar duas vezes não duplica o anel —
+Cada behavior expõe a própria extensão de registro: `AddLoggingBehavior()` no kernel,
+`AddPessoasTransactionBehavior()` no módulo. O anel de módulo **não tem como** ser registrado à
+mão pelo host — a subclasse recebe o `DbContext` do módulo, que é `internal`, então ela também
+é `internal`, e o `Program.cs` está noutro assembly. A extensão é o que mantém o anel visível
+numa linha do `Program.cs` sem abrir o tipo. As extensões usam `TryAddEnumerable`, então chamar
+duas vezes não duplica o anel —
 e, ao contrário do `TryAddScoped` do `ISender`, aqui duplicar **quebraria de verdade**: o
 behavior rodaria duas vezes por requisição.
 
@@ -574,7 +583,7 @@ Isso importa mais do que parece:
 | 1 | `LoggingBehavior` | **sim** | Por fora de tudo, para a duração medida ser a que o usuário esperou e para a rejeição dos anéis de dentro também virar linha de log |
 | 2 | autorização (RBAC com escopo) | não | Antes da validação: quem não pode nem ver o recurso não deve descobrir quais campos estão errados nele |
 | 3 | validação | não | Antes da transação, senão você abre transação para requisição que já ia ser rejeitada |
-| 4 | `TransactionBehavior` | **sim**, e nenhum módulo o registra ainda | O mais interno, colado no handler, para segurar o menor trecho possível |
+| 4 | `TransactionBehavior` | **sim**, registrado por `Pessoas` | O mais interno, colado no handler, para segurar o menor trecho possível |
 
 A auditoria não aparece na tabela porque **não é anel**: ela pendura no `SaveChanges`, ou
 seja, dentro da transação. É isso que a frase "transação por fora de auditoria" quer dizer.
@@ -789,11 +798,47 @@ internal sealed class PessoasTransactionBehavior<TRequest, TResponse>(PessoasDbC
 }
 ```
 
-E registra o anel no `Program.cs`, na posição que ele deve ocupar:
+Ela é `internal` por obrigação, não por gosto: o construtor recebe o `PessoasDbContext`, que é
+`internal` ([ADR-0015](../../../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md)), e
+tipo público com construtor que recebe tipo interno não compila — CS0051. Como o `Program.cs`
+está noutro assembly, ele **não consegue nomear a subclasse**. Por isso o módulo expõe uma
+extensão só para o anel, ao lado da do contexto, e o host fica com duas linhas:
 
 ```csharp
-services.AddScoped(typeof(IPipelineBehavior<,>), typeof(PessoasTransactionBehavior<,>));
+builder.Services.AddPessoasDbContext(options => options.UseNpgsql(...));
+builder.Services.AddPessoasTransactionBehavior();
 ```
+
+### Duas linhas, e não uma que registre o módulo inteiro
+
+Houve uma `AddPessoasModule` que registrava o contexto, e a pergunta natural é por que o anel
+não entrou nela — é peça do módulo, afinal. A resposta é que **a ordem de registro é a ordem
+dos anéis**, e um anel escondido dentro de uma extensão chamada "módulo" faz a posição daquela
+linha no `Program.cs` decidir o pipeline em silêncio. Quem chegasse depois para encaixar o anel
+de autorização leria
+
+```csharp
+builder.Services.AddKernelApplication();
+builder.Services.AddLoggingBehavior();
+...
+builder.Services.AddPessoasModule(options => options.UseNpgsql(...));
+```
+
+e não teria como saber que a última linha carrega o anel mais interno de todos. Registrar
+autorização depois dela — que é onde se acrescenta qualquer coisa — poria autorização **dentro**
+da transação, e isso não quebra teste de handler nenhum.
+
+O guarda-chuva também convidava a próxima peça a entrar escondida: o interceptor de auditoria é
+"do módulo" pelo mesmo argumento. Então ele foi desfeito. Cada linha tem o nome do que registra,
+`AddPessoasDbContext` não promete mais do que entrega, e o custo aceito é que **esquecer a linha
+do anel faz os comandos pararem de persistir em silêncio**.
+
+É o teste que paga esse custo, não a boa intenção:
+`PipelineRegistrationTests.O_anel_de_transacao_deve_ser_o_mais_interno_do_pipeline`, em
+`CathedrAll.Api.Tests`, resolve o pipeline do `Program.cs` de verdade e afirma quantos anéis
+existem e qual é o mais interno. Ele fica vermelho se a linha sumir e se ela trocar de lugar —
+as duas coisas foram conferidas removendo e reordenando. Quando entrarem os anéis 2 e 3, a
+contagem quebra de propósito: quem os escrever tem que vir aqui dizer onde eles entram.
 
 ### Os anéis se acumulam, e essa conta chega no segundo módulo
 
@@ -816,7 +861,7 @@ contexto tem conexão própria, e as N−1 alheias abrem e confirmam vazias. Mas
 conexão do pool pela duração da requisição, e isso não é desperdício simbólico: com cinco
 módulos são cinco conexões por requisição no lugar de uma.
 
-**Está tolerado hoje porque não existe módulo, e com um módulo só o custo é zero.** A conta
+**Está tolerado hoje porque só existe um módulo, e com um módulo o custo é zero.** A conta
 chega no segundo, e não deve ser paga antes: as saídas plausíveis — filtrar por um marcador de
 módulo na requisição, ou registrar o anel fechado por tipo de comando — têm trade-offs
 diferentes, e a escolha melhora muito com dois módulos concretos na mão. **O que não é opção é
