@@ -1,7 +1,11 @@
 import type { RouteObject } from "react-router";
 import { Layout } from "./Layout";
 import { Home } from "./Home";
-import { PessoaForm } from "@/modules/pessoas/PessoaForm";
+import { RecepcaoPage } from "@/modules/pessoas/RecepcaoPage";
+import { PessoasPage } from "@/modules/pessoas/PessoasPage";
+import { PessoaFichaPage } from "@/modules/pessoas/PessoaFichaPage";
+import { PautaPage } from "@/modules/pessoas/PautaPage";
+import { AniversariantesPage } from "@/modules/pessoas/AniversariantesPage";
 
 export const routes: RouteObject[] = [
   {
@@ -9,8 +13,11 @@ export const routes: RouteObject[] = [
     element: <Layout />,
     children: [
       { index: true, element: <Home /> },
-      // Rota de referência do padrão de formulário. Sai quando o cadastro real existir.
-      { path: "pessoas/nova", element: <PessoaForm /> },
+      { path: "recepcao", element: <RecepcaoPage /> },
+      { path: "pessoas", element: <PessoasPage /> },
+      { path: "pessoas/:id", element: <PessoaFichaPage /> },
+      { path: "pauta", element: <PautaPage /> },
+      { path: "aniversariantes", element: <AniversariantesPage /> },
     ],
   },
 ];
