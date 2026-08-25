@@ -19,4 +19,23 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ['**/*.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['**/fake', '**/fake/*'],
+            message:
+              'Nenhuma tela conhece a origem do dado. Consuma os hooks de modules/<modulo>/queries.ts.',
+          },
+          {
+            group: ['**/modules/*/api', './api', '../api'],
+            message:
+              'api.ts é a costura com o cliente gerado. Consuma os hooks de modules/<modulo>/queries.ts.',
+          },
+        ],
+      }],
+    },
+  },
 ])

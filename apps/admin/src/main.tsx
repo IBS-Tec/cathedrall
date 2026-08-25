@@ -6,11 +6,15 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 import "./index.css";
 // Configura as mensagens do Zod em pt-BR. Precisa vir antes de qualquer schema.
 import "./lib/validation";
+import { isClientError } from "./lib/problem-details";
 import { routes } from "./app/routes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30_000, retry: 1 },
+    queries: {
+      staleTime: 30_000,
+      retry: (falhas, erro) => !isClientError(erro) && falhas < 1,
+    },
   },
 });
 
