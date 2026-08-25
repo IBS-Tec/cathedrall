@@ -7,5 +7,9 @@
   },
   "ConnectionStrings": {
     "CathedrAll": "Host=localhost;Port=5432;Database=cathedrall;Username=cathedrall;Password="
+  },
+  "CurrentUser": {
+    "Id": "11111111-1111-1111-1111-111111111111",
+    "Papel": "Pastor"
   }
 }

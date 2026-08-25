@@ -10,6 +10,11 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddKernelApplication();
 builder.Services.AddLoggingBehavior();
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddDevelopmentCurrentUser(builder.Configuration);
+}
+
 builder.Services.AddPessoasModule(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString(PostgresHealthCheck.ConnectionName),
@@ -27,6 +32,8 @@ builder.Services.AddHealthChecks()
         "postgres",
         tags: ["ready"],
         timeout: TimeSpan.FromSeconds(3));
+
+builder.Services.RequireCurrentUser();
 
 WebApplication app = builder.Build();
 

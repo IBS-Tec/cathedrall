@@ -6,18 +6,19 @@ Guarda os blocos de construção que os módulos usam e **não conhece módulo n
 > **Estado: o `Result`, os blocos de DDD, o mediator e dois behaviors.**
 > `CathedrAll.Kernel.Domain` tem `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`
 > e `DomainEvent`. `CathedrAll.Kernel.Application` tem o mediator — `ISender`, `IRequest`,
-> `IRequestHandler`, `IPipelineBehavior` —, o `LoggingBehavior` e o registro de DI.
-> `CathedrAll.Kernel.Infrastructure` tem o `TransactionBehavior`. **Os behaviors escritos
-> são o de log e o de transação:** não existe validação, nem autorização, nem interceptor
-> de auditoria, e nenhum módulo registra o anel de transação ainda, porque não existe
-> módulo. Este README descreve só o que já está escrito.
+> `IRequestHandler`, `IPipelineBehavior` —, o `LoggingBehavior`, o `ICurrentUser` e o
+> registro de DI. `CathedrAll.Kernel.Infrastructure` tem o `TransactionBehavior`.
+> **Os behaviors escritos são o de log e o de transação:** não existe validação, nem
+> autorização, nem interceptor de auditoria, e nenhum módulo registra o anel de transação
+> ainda, porque não existe módulo. **E `ICurrentUser` não é autenticação** — é a porta que
+> ela vai preencher. Este README descreve só o que já está escrito.
 
 ## Os três projetos
 
 | Projeto | Guarda | Referencia |
 | --- | --- | --- |
 | `CathedrAll.Kernel.Domain` | `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` | nada |
-| `CathedrAll.Kernel.Application` | o mediator, o contrato dos behaviors e o `LoggingBehavior` | `Kernel.Domain` |
+| `CathedrAll.Kernel.Application` | o mediator, o contrato dos behaviors, o `LoggingBehavior` e o `ICurrentUser` | `Kernel.Domain` |
 | `CathedrAll.Kernel.Infrastructure` | o `TransactionBehavior` | `Kernel.Application` |
 
 O ADR-0012 esboçou um `CathedrAll.Kernel` único. São vários porque a seta importa: a camada
@@ -370,8 +371,8 @@ toda tabela do sistema — inclusive as que a revisão de LGPD classificou como 
 Ninguém revisa `CreatedBy` procurando PII. Se o `sub` do IdP não for GUID, quem guarda o
 `sub` é a tabela de usuários; a chave continua `Guid`.
 
-Esse `Guid` **não entra no domínio**. Quando o interceptor existir, ele lê o ator de uma
-abstração em `Kernel.Application`, e é lá que o tipo mora — por isso o
+Esse `Guid` **não entra no domínio**. Quando o interceptor existir, ele lê o ator do
+[`ICurrentUser`](#icurrentuser), em `Kernel.Application`, e é lá que o tipo mora — por isso o
 [ADR-0017](../../../../docs/adr/0017-ids-fortemente-tipados.md) não precisa de exceção.
 
 ### Estas colunas não são o audit log
@@ -416,6 +417,48 @@ Nenhum interceptor existe ainda, e por isso **nenhuma coluna de auditoria existe
 elas entram na migration que acompanhar o interceptor, não antes
 ([ADR-0018](../../../../docs/adr/0018-auditoria-fora-da-entidade.md)). Coluna que nada
 escreve é aforância falsa, e `CreatedAt` sem interceptor gravaria `0001-01-01` em silêncio.
+
+## `ICurrentUser`
+
+`Kernel.Application` guarda o contrato de quem está executando a requisição. Duas
+propriedades, nenhuma opcional:
+
+```csharp
+public interface ICurrentUser
+{
+    Guid Id { get; }
+
+    Papel Papel { get; }
+}
+```
+
+`Id` responde "quem fez", e é o que o interceptor de auditoria vai gravar em `CreatedBy`.
+`Papel` responde "pode fazer", com os quatro valores da matriz da seção 7 da Spec-0001:
+`Recepcao`, `Dirigente`, `Secretaria`, `Pastor`. `Recepcao` é `0` de propósito — é o menos
+privilegiado, e é nele que cai todo valor de enum não inicializado.
+
+**Isto não é autenticação, e o contrato prova.** Não há `ClaimsPrincipal`, `HttpContext`,
+token nem cookie em lugar nenhum dele. Um handler que o recebe não sabe sequer que existe
+HTTP, e é essa ignorância que permite a autenticação de verdade entrar por baixo sem tocar em
+handler nenhum. Se o contrato falasse de claim, trocar a implementação mudaria quem depende
+dela — o oposto do que uma porta existe para garantir.
+
+**O `Guid` cru é intencional** e não abre exceção no
+[ADR-0017](../../../../docs/adr/0017-ids-fortemente-tipados.md): a proibição vale dentro de
+um módulo, e o kernel não é módulo. Um `UsuarioId` aqui seria o kernel declarando vocabulário
+de um módulo de acesso que não existe.
+
+**Nada de `Nome`.** Seria conveniente no log, e é exatamente por isso que fica de fora: nome
+de pessoa em arquivo de log é dado pessoal fora do banco, sem retenção definida e sem
+anonimização possível. Vale a mesma cláusula do `LoggingBehavior` — nenhum sinal carrega dado
+de pessoa. O `Guid`, cruzado com a tabela de usuários no dia em que ela existir, responde à
+mesma pergunta sem espalhar o dado.
+
+**O kernel declara a porta e não implementa nenhuma.** `AddKernelApplication` não registra
+`ICurrentUser`, de propósito: quem escolhe a implementação é o host — hoje um adapter de
+desenvolvimento que só entra quando o ambiente é `Development`, amanhã o módulo de acesso. O host também é
+quem se recusa a subir sem nenhuma, e os dois lados estão em
+[`apps/api/README.md`](../../README.md#usuário-atual).
 
 ## O mediator
 
