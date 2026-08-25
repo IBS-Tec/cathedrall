@@ -516,7 +516,7 @@ projeção separada e não a ficha com menos campos.
 ora pelos aniversariantes às vezes é o pastor e às vezes não. A rigor isso é alocação a um
 evento — "dirigente *do culto de domingo*" pede complemento, logo é relação, não coisa —, e
 caberia em `Escalas`. Mas **permissão derivada de alocação temporal é armadilha**: "ontem eu
-via e hoje não" gera chamado no domingo de manhã, é difícil de depurar, e amarraria este
+via e hoje não" gera chamado no domingo à noite, é difícil de depurar, e amarraria este
 módulo a dois que ainda não existem. E é desnecessário, porque **o dado já é limitado pelo
 tempo**: a pauta mostra os visitantes de hoje e os aniversariantes da semana. Acesso
 permanente a uma lista efêmera não acumula nada. Os poucos que sobem ao púlpito têm o papel o
@@ -533,7 +533,7 @@ que a fronteira existe para impedir.
 
 **Contas individuais para a recepção, mesmo sendo voluntário rotativo.** Conta compartilhada
 faz o audit log dizer "a recepção fez isso", que é o mesmo que não ter log — e o log é o
-motivo de tudo isto existir. Se o atrito se provar inviável no domingo de manhã, isso vira
+motivo de tudo isto existir. Se o atrito se provar inviável no domingo à noite, isso vira
 decisão consciente e registrada, não um jeitinho.
 
 **Granularidade do audit de leitura.** Abrir a ficha de alguém é um evento e vai para o log.
@@ -622,7 +622,7 @@ uma em ordem de data. A ordem é a da fala: o dirigente chama os aniversariantes
 casais. Uma lista misturada obrigaria quem está com o microfone na mão a separar os dois com
 o olho, na frente da igreja.
 
-É lida em voz alta num domingo de manhã, então precisa caber na tela de um celular e ser
+É lida em voz alta num domingo à noite, então precisa caber na tela de um celular e ser
 legível de longe. Quando uma das duas está vazia e a outra não, a vazia some ou se diz vazia
 — o que não pode é a tela inteira parecer sem ninguém.
 
@@ -654,9 +654,9 @@ medir antes de descartar — a resposta pode ser um repetidor de wi-fi, não uma
 ### Contas na recepção
 
 Contas individuais (seção 7) só funcionam se o voluntário usar **o próprio celular** e ficar
-logado. Aparelho compartilhado com login a cada domingo é atrito que ninguém aceita às nove
-da manhã — e a saída fácil, a conta compartilhada, faz o audit log dizer "a recepção fez
-isso", que é o mesmo que não ter log.
+logado. Aparelho compartilhado com login a cada culto é atrito que ninguém aceita no domingo à
+noite — e a saída fácil, a conta compartilhada, faz o audit log dizer "a recepção fez isso",
+que é o mesmo que não ter log.
 
 ## 9. Dados pessoais e LGPD
 
