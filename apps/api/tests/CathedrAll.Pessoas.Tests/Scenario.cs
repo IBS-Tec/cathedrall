@@ -113,12 +113,11 @@ internal static class Scenario
         using IServiceScope scope = provider.CreateScope();
         PessoasDbContext context = scope.ServiceProvider.GetRequiredService<PessoasDbContext>();
 
-        context.Pessoas.Add(new Pessoa(id, "João Guedes"));
-        context.Add(new VinculoIgreja(
-            new VinculoIgrejaId(Guid.CreateVersion7()),
-            id,
-            Situacao.Visitante,
-            new DateOnly(2026, 8, 23)));
+        DateOnly chegada = new(2026, 8, 23);
+        Pessoa pessoa = new(id, "João Guedes");
+        pessoa.SucederVinculo(Situacao.Visitante, chegada, null, chegada);
+
+        context.Pessoas.Add(pessoa);
 
         await context.SaveChangesAsync();
     }

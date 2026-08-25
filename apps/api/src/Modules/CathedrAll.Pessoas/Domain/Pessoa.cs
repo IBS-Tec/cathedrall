@@ -34,4 +34,27 @@ internal sealed class Pessoa : AggregateRoot<PessoaId>
     public Endereco? Endereco { get; init; }
 
     public IReadOnlyList<VinculoIgreja> Vinculos => _vinculos.AsReadOnly();
+
+    internal Result SucederVinculo(
+        Situacao situacao,
+        DateOnly data,
+        string? motivo,
+        DateOnly hoje)
+    {
+        if (data > hoje)
+        {
+            return Result.Failure(PessoaErrors.DataFutura);
+        }
+
+        VinculoIgreja? vigente = _vinculos.SingleOrDefault(v => v.DataFim is null);
+
+        if (vigente is not null && data < vigente.DataInicio)
+        {
+            return Result.Failure(PessoaErrors.DataRetroativa);
+        }
+
+        vigente?.Encerrar(data);
+        _vinculos.Add(VinculoIgreja.Abrir(Id, situacao, data, motivo));
+        return Result.Success();
+    }
 }

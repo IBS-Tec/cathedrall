@@ -471,7 +471,7 @@ reescrever a qualquer momento.
 | `Pessoa.NomeObrigatorio` | 400 | Vazio depois de `Trim` (RN-13) |
 | `Pessoa.MotivoObrigatorio` | 400 | Afastamento ou transferência sem motivo |
 | `Pessoa.DataFutura` | 400 | Qualquer data no futuro (RN-3) |
-| `Pessoa.DataRetroativa` | 400 | Afastamento com data no passado (RN-7) |
+| `Pessoa.DataRetroativa` | 400 | Data que recua o histórico: anterior ao início do vínculo vigente (RN-2), ou afastamento com data no passado (RN-7) |
 | `Pessoa.AutoConvite` | 400 | `ConvidadoPorId` igual ao próprio `Id` (RN-20) |
 | `Pessoa.FusaoConsigoMesma` | 400 | `absorvidaId` igual a `{id}` |
 
