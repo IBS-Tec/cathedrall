@@ -260,10 +260,10 @@ Todas as rotas sob `/api`, autenticadas. Nada de `Pessoa` aparece em `/public/*`
 
 | Método | Rota | Faz |
 |---|---|---|
-| `GET` | `/api/pessoas?busca=` | Busca por nome. A tela da recepção |
-| `GET` | `/api/pessoas?situacao=&bairro=&pagina=&tamanho=` | Lista filtrada e paginada |
-| `GET` | `/api/pessoas/aniversariantes?de=&ate=` | A lista do domingo |
-| `GET` | `/api/pessoas/pauta?data=` | Visitantes do dia e aniversariantes da semana, juntos |
+| `GET` | `/api/pessoas?search=` | Busca por nome. A tela da recepção |
+| `GET` | `/api/pessoas?situacao=&bairro=&page=&size=` | Lista filtrada e paginada |
+| `GET` | `/api/pessoas/aniversariantes?from=&to=` | A lista do domingo |
+| `GET` | `/api/pessoas/pauta?date=` | Visitantes do dia e aniversariantes da semana, juntos |
 | `GET` | `/api/pessoas/{id}` | Ficha completa com histórico |
 | `POST` | `/api/pessoas` | Cadastra |
 | `PATCH` | `/api/pessoas/{id}` | Atualiza dados. **Nunca a situação** |
@@ -287,7 +287,13 @@ objeto de valor substituído em bloco, se vier, vem inteiro.
 **`{id:guid}` como restrição de rota**, ou `/pessoas/aniversariantes` colide com
 `/pessoas/{id}`.
 
-### `GET /api/pessoas?busca=joão gue`
+**Nome de campo segue o ADR-0013, e a fronteira é a origem do nome, não a camada.** Campo que
+existe por causa da igreja fica em português — `nome`, `situacao`, `bairro`, `desde`,
+`convidadoPor`, `dataInicio`, `data` do aniversário. Campo que existe por causa do transporte
+fica em inglês — `search`, `page`, `size`, `total`, `results`, `items`, `from`, `to`, `date`.
+Paginação e busca não são vocabulário desta igreja.
+
+### `GET /api/pessoas?search=joão gue`
 
 A rota mais crítica do sistema: roda enquanto a recepcionista digita, no celular, com a
 pessoa esperando. Casamento por token, sem acento, nos dois sentidos (RN-21). Máximo de 10
@@ -295,7 +301,7 @@ resultados.
 
 ```jsonc
 // 200
-{ "resultados": [
+{ "results": [
   { "id": "…", "nome": "João Guedes",
     "situacao": "Visitante", "desde": "2024-03-12",
     "convidadoPor": { "id": "…", "nome": "Maria Souza" } }
@@ -307,6 +313,55 @@ a recepção não precisa e endereço é o campo que mais eleva o custo de um va
 que devolve ficha completa espalha dado pessoal por toda tela que faz autocomplete.
 `desde` e `convidadoPor` estão aí porque são o único desempate de homônimo que o visitante
 tem.
+
+### `GET /api/pessoas?situacao=Membro&bairro=centro&page=1&size=25`
+
+A tela da secretaria. `page` é 1-based; `size` tem teto no servidor.
+
+```jsonc
+// 200
+{ "items": [
+    { "id": "…", "nome": "João Guedes", "situacao": "Visitante",
+      "desde": "2024-03-12", "bairro": "Centro" } ],
+  "page": 1, "size": 25, "total": 86 }
+```
+
+**`total` é contagem de verdade**, não estimativa: a secretaria precisa saber quantos membros
+a igreja tem, e são ~86 linhas — o `COUNT(*)` é barato aqui e deixa de ser problema de
+paginação para virar a resposta de uma pergunta que a liderança faz.
+
+**A linha da lista também é projeção pobre**, pelo mesmo motivo da busca: sem celular, sem
+e-mail, sem endereço além do bairro que o próprio filtro usa. Não porque a secretaria não
+possa vê-los, mas porque **ainda não foi pedido**. Quando for, avalia-se antes de incluir.
+
+### `GET /api/pessoas/{id}`
+
+```jsonc
+// 200 — ficha comum
+{ "id": "…", "nome": "João Guedes", "situacao": "Membro",
+  "convidadoPor": { "id": "…", "nome": "Maria Souza" },
+  "celular": "+5581999999999", "email": "joao@exemplo.com",
+  "dataNascimento": "1990-04-02", "estadoCivil": "Casado",
+  "dataCasamento": "2015-11-21",
+  "endereco": { "cep": "50000000", "logradouro": "Rua A", "numero": "123-A",
+                "complemento": null, "bairro": "Centro", "cidade": "Recife", "uf": "PE" },
+  "profissao": "Eletricista", "dataBatismo": "2016-03-06",
+  "vinculos": [
+    { "situacao": "Visitante", "dataInicio": "2024-03-12", "dataFim": "2024-09-15", "motivo": null },
+    { "situacao": "Membro",    "dataInicio": "2024-09-15", "dataFim": null,         "motivo": null } ],
+  "fundidaEm": null, "anonimizada": false }
+```
+
+**`situacao` vem mastigada**, embora seja derivável do vínculo com `dataFim` nula (RN-1).
+Derivar no cliente é reimplementar a RN-1 em cada tela, e a terceira implementação erra.
+
+**`fundidaEm` e `anonimizada` viajam no 200**, e é isso que sustenta as duas linhas da tabela
+de estados da seção 8: registro absorvido responde 200 com `fundidaEm` preenchido e a tela
+leva ao sobrevivente (RN-24) — **nunca 404**. Registro anonimizado responde 200 com `nome`
+substituído, campos pessoais nulos, `vinculos` preservados (RN-16) e `anonimizada: true`.
+
+**Os dois podem ser verdadeiros ao mesmo tempo**, e nesse caso `fundidaEm` tem precedência
+na tela: o que a secretaria precisa é chegar no registro sobrevivente.
 
 ### `POST /api/pessoas`
 
@@ -351,7 +406,7 @@ apontava para ele é repontado; `EscalaItem.PessoaId` não pode ser, porque o AD
 mão de FK entre módulos e `Pessoas` não conhece `Escalas`. É por isso que a fusão redireciona
 em vez de apagar.
 
-### `GET /api/pessoas/aniversariantes?de=2026-08-23&ate=2026-08-29`
+### `GET /api/pessoas/aniversariantes?from=2026-08-23&to=2026-08-29`
 
 ```jsonc
 // 200
@@ -361,11 +416,17 @@ em vez de apagar.
 ] }
 ```
 
-Compara dia e mês, ignorando o ano. Exclui `Falecido` e `Transferido` (RN-25). Quando os dois
+Compara dia e mês, ignorando o ano. Exclui `Falecido` e `Transferido` (RN-25).
+
+**O item desta lista e o de `aniversariantes` na pauta são o mesmo componente do OpenAPI**,
+declarado uma vez e referenciado por `$ref` nas duas rotas. Não são duas formas que hoje
+coincidem: é o mesmo conceito, lido no mesmo domingo, pela mesma pessoa. Schema inline
+duplicado faria o cliente gerado emitir dois tipos, e o admin teria que escolher entre
+duplicar a tela ou converter um no outro. Quando os dois
 cônjuges são cadastrados, a mesma data de casamento aparece duas vezes — são 8 casais assim
 hoje, e resolver isso exigiria `Familia`, que está fora do MVP.
 
-### `GET /api/pessoas/pauta?data=2026-08-23`
+### `GET /api/pessoas/pauta?date=2026-08-23`
 
 O que o dirigente do culto lê em voz alta, vindo do cadastro.
 
@@ -383,7 +444,7 @@ tela, uma permissão e um momento em que a rede é inimiga: duas requisições n
 são duas chances de a tela ficar pela metade com a igreja olhando.
 
 `visitantes` são os cadastrados **naquele dia** — `DataInicio` do vínculo `Visitante` igual a
-`data`. `convidadoPor` vai junto porque é assim que se apresenta: *"temos hoje o João,
+`date`. `convidadoPor` vai junto porque é assim que se apresenta: *"temos hoje o João,
 convidado pela Maria."*
 
 **A rota mora sob `/api/pessoas` de propósito.** "Pauta do culto" é vocabulário de `Eventos`,
@@ -644,7 +705,7 @@ Só é bloqueante a pergunta que muda o modelo.
 - [ ] Os quatro métodos de transição: RN-5 a RN-12
 - [ ] [P] Teste parametrizado da matriz inteira — 25 pares mais as 5 entradas de cadastro,
       exaustivo. É ele que garante que uma situação nova no enum não passe sem decisão
-- [ ] [P] `GET /api/pessoas?busca=` — a rota mais crítica (seção 6)
+- [ ] [P] `GET /api/pessoas?search=` — a rota mais crítica (seção 6)
 - [ ] `POST /api/pessoas` e `PATCH /api/pessoas/{id}` (seção 6)
 - [ ] As quatro rotas de transição (seção 6)
 - [ ] `GET /api/pessoas/aniversariantes`: RN-25
@@ -652,6 +713,9 @@ Só é bloqueante a pergunta que muda o modelo.
 - [ ] Conciliação da planilha: 90 linhas, 8 reenvios prováveis e 13 datas em texto livre
       marcados para decisão humana. Não é script — o dado desconhecido entra como nulo,
       nunca como valor inventado para o import passar
+- [ ] Rotas, shell e camada de dados falsos do módulo `pessoas` no admin (seção 8).
+      Pré-requisito comum das quatro fatias de tela abaixo, que só correm em paralelo
+      porque nenhuma delas precisa inventar o próprio jeito de falsear dado
 - [ ] [P] `/recepcao` contra dados falsos: busca, cadastro de dois campos e a pauta do dia
 - [ ] [P] `/pessoas` e `/pessoas/{id}` contra dados falsos: lista, ficha e histórico
 - [ ] [P] `/pauta` contra dados falsos: as duas listas, tipo grande, botão de atualizar
