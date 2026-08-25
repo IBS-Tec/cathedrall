@@ -37,7 +37,7 @@ neste diretório ou no [runbook](../docs/runbook.md), isso é um bug de infraest
 
 Builds rodam na mesma máquina que a produção. Build de Node é guloso em memória e vai
 competir com Postgres, Directus e API. Dimensione para o pico de build — um deploy do site
-não pode derrubar a API no domingo de manhã.
+não pode derrubar a API no domingo à noite.
 
 ## Backup — antes de existir dado real
 
