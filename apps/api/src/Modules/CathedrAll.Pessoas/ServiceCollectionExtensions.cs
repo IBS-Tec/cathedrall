@@ -1,4 +1,5 @@
 using CathedrAll.Kernel.Application;
+using CathedrAll.Pessoas.Application;
 using CathedrAll.Pessoas.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,15 @@ public static class ServiceCollectionExtensions
             configure(options);
             options.UseSnakeCaseNamingConvention();
         });
+
+        return services;
+    }
+
+    public static IServiceCollection AddPessoasHandlers(this IServiceCollection services)
+    {
+        services.TryAddScoped<
+            IRequestHandler<SearchPessoasQuery, SearchPessoasResponse>,
+            SearchPessoasHandler>();
 
         return services;
     }
