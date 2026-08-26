@@ -4,6 +4,10 @@
     <ProjectReference Include="../../Kernel/CathedrAll.Kernel.Infrastructure/CathedrAll.Kernel.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>

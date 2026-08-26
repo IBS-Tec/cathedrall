@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Text.Json.Serialization;
 using CathedrAll.Api;
 using CathedrAll.Kernel.Application;
 using CathedrAll.Pessoas;
+using CathedrAll.Pessoas.Endpoints;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,6 +22,10 @@ builder.Services.AddPessoasDbContext(options =>
         builder.Configuration.GetConnectionString(PostgresHealthCheck.ConnectionName),
         npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "pessoas")));
 builder.Services.AddPessoasTransactionBehavior();
+builder.Services.AddPessoasHandlers();
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
@@ -48,5 +54,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready"),
 });
+
+app.MapPessoasEndpoints();
 
 await app.RunAsync();
