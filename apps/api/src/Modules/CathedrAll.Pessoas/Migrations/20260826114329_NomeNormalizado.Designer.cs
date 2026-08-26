@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using CathedrAll.Pessoas.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CathedrAll.Pessoas.Migrations
 {
     [DbContext(typeof(PessoasDbContext))]
-    partial class PessoasDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826114329_NomeNormalizado")]
+    partial class NomeNormalizado
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

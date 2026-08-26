@@ -9,9 +9,15 @@ internal sealed class Pessoa : AggregateRoot<PessoaId>
     internal Pessoa(
         PessoaId id,
         string nome)
-        : base(id) => Nome = nome;
+        : base(id)
+    {
+        Nome = nome;
+        NomeNormalizado = TextNormalization.Normalize(nome);
+    }
 
     public string Nome { get; private set; }
+
+    public string NomeNormalizado { get; private set; }
 
     public PessoaId? ConvidadoPorId { get; init; }
 

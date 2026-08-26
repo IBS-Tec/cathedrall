@@ -15,6 +15,8 @@ internal sealed class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
 
         builder.Property(p => p.Nome).HasMaxLength(120);
 
+        builder.Property(p => p.NomeNormalizado).HasMaxLength(120);
+
         builder.Property(p => p.Celular).HasMaxLength(20);
 
         builder.Property(p => p.Email).HasMaxLength(200);
@@ -40,6 +42,6 @@ internal sealed class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
 
         builder.Navigation(p => p.Vinculos).UsePropertyAccessMode(PropertyAccessMode.Field);
 
-        builder.HasIndex(p => p.Nome);
+        builder.HasIndex(p => p.NomeNormalizado);
     }
 }
