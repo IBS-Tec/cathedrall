@@ -3,15 +3,17 @@
 .NET 10, ASP.NET Core, Minimal API. Domínio: `api.ibscristo.com.br`.
 
 > **Estado: host, kernel, mediator, formato de erro, o anel de transação e o módulo
-> `Pessoas`.** Existem o host
+> `Pessoas` com a primeira rota.** Existem o host
 > com `/health`, a configuração de build, o kernel de domínio — `Result`, `Error`,
 > `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` —, o mediator com dois behaviors, o de
 > log e o de transação, e os dois pontos de conversão da fronteira HTTP descritos em
 > [Formato de erro](#formato-de-erro). O kernel está em
 > [`src/Kernel/README.md`](src/Kernel/README.md). **O primeiro módulo existe:**
-> `CathedrAll.Pessoas`, com o `PessoasDbContext` no schema `pessoas`, as entidades mapeadas
-> e a migration inicial aplicável num banco limpo — **estado e mapeamento, sem regra de
-> negócio**. Não existe handler, endpoint, autenticação, nem invariante de domínio, mas **o
+> `CathedrAll.Pessoas`, com o `PessoasDbContext` no schema `pessoas`, as entidades mapeadas,
+> as invariantes do histórico de vínculos (RN-1 a RN-4) e **uma rota: a busca da recepção,
+> `GET /api/pessoas/search`**. O módulo tem
+> [README próprio](src/Modules/CathedrAll.Pessoas/README.md), e é lá que estão as decisões
+> dele. Não existem cadastro, transições, ficha, autenticação nem audit log, mas **o
 > anel de transação já está registrado**, fechado sobre o `PessoasDbContext`. Existe `ICurrentUser`, com implementação
 > de desenvolvimento — e ela **não é autenticação**, ver [Usuário atual](#usuário-atual).
 > A API está sendo reconstruída do zero, em passos pequenos. Este README descreve só o que já
@@ -58,6 +60,13 @@ O usuário e a senha estão em `infra/compose/.env`, criados pelo `initdb/01-ban
 | --- | --- | --- | --- |
 | `GET /health` | anônimo | nada | O processo responde. Sempre `200 Healthy` |
 | `GET /health/ready` | anônimo | Postgres | `200 Healthy` ou `503 Unhealthy` |
+| `GET /api/pessoas/search?q=` | **anônima ainda** | — | A busca da recepção. Projeção pobre, no máximo 10 resultados |
+
+A rota de busca **deveria ser autenticada** — a seção 7 da spec-0001 diz que tudo sob `/api`
+é —, e não é, porque não há autenticação. O portão que protege isso não é técnico: **nenhum
+dado de pessoa real entra em banco nenhum, nem no de desenvolvimento**, antes de a
+autenticação e o audit log existirem. Ver [Antes do primeiro CRUD](#antes-do-primeiro-crud).
+O `.RequireAuthorization()` entra uma vez, no `MapGroup("/api/pessoas")`.
 
 **São perguntas diferentes, e a separação é deliberada.** `/health` responde "estou vivo,
 me reinicie se eu não responder isto". `/health/ready` responde "consigo atender pedidos
@@ -261,7 +270,8 @@ src/
     CathedrAll.Kernel.Infrastructure/     TransactionBehavior
   Modules/
     CathedrAll.Pessoas/                   Pessoa, VinculoIgreja, PessoasDbContext,
-                                          migrations e o anel de transação do módulo
+                                          migrations, o anel de transação do módulo
+                                          e a busca da recepção — README próprio
 tests/
   CathedrAll.Api.Tests/                   testes do host: integração e mapeamento
   CathedrAll.Kernel.Domain.Tests/         testes unitários do kernel de domínio
@@ -337,14 +347,16 @@ convenção que alguém precisa lembrar. Do destino existem o kernel e o primeir
 
 ## O módulo `Pessoas`
 
-`src/Modules/CathedrAll.Pessoas/`, com as pastas do ADR-0012. Hoje só `Domain/` e
-`Infrastructure/` têm conteúdo — `Application/` e `Endpoints/` aparecem quando houver o quê
-pôr nelas.
+`src/Modules/CathedrAll.Pessoas/`, com as pastas do ADR-0012 — as quatro têm conteúdo desde a
+busca da recepção. **As decisões do módulo moram no
+[README dele](src/Modules/CathedrAll.Pessoas/README.md);** aqui fica só o que o host precisa
+saber para compô-lo.
 
-**Todo tipo do módulo é `internal`, e o host enxerga só duas extensões de registro:
-`AddPessoasDbContext` e `AddPessoasTransactionBehavior`.** Nem o `PessoasDbContext`, nem
-`Pessoa`, nem a subclasse que fecha o anel de transação sobre o contexto são alcançáveis de
-fora. São duas linhas, e não uma, porque a ordem de registro é a ordem dos anéis — o
+**Todo tipo do módulo é `internal`, e o host enxerga quatro verbos:** `AddPessoasDbContext`,
+`AddPessoasTransactionBehavior`, `AddPessoasHandlers` e `MapPessoasEndpoints`. Nem o
+`PessoasDbContext`, nem `Pessoa`, nem a subclasse que fecha o anel de transação sobre o
+contexto, nem os contratos da busca são alcançáveis de fora. Os registros são linhas
+separadas, e não uma, porque a ordem de registro dos behaviors é a ordem dos anéis — o
 raciocínio inteiro está no [README do kernel](src/Kernel/README.md). Quem escolhe provider e
 connection string é o `Program.cs`; o
 módulo recebe a configuração como lambda e acrescenta a convenção de nome
@@ -355,9 +367,10 @@ módulo recebe a configuração como lambda e acrescenta a convenção de nome
 ([ADR-0017](../../docs/adr/0017-ids-fortemente-tipados.md)). `Celular` e `Email` são objetos
 de valor e usam o mesmo padrão de conversor.
 
-**As entidades são estado e mapeamento, sem comportamento.** Não há fábrica, invariante nem
-método de transição — eles vêm nas tarefas seguintes, e separá-los é o que fez a migration
-nascer antes de qualquer regra poder atrasá-la. Uma consequência disso é visível no código:
+**As entidades ganharam as invariantes do histórico, e nada além delas.** `SucederVinculo`
+cumpre RN-1 a RN-4; não há fábrica de cadastro nem os quatro métodos de transição. A migration
+nasceu antes de qualquer regra poder atrasá-la, e uma consequência disso continua visível no
+código:
 as propriedades opcionais são `{ get; init; }`, e não `{ get; private set; }`, porque o
 Sonar recusa setter privado sem chamador (`S1144`) e o build trata aviso como erro. Elas
 viram `private set` quando os métodos existirem.
@@ -386,7 +399,8 @@ e paga na leitura direta do banco — e o modo de falha é alto: renomear um mem
 estoura na materialização, enquanto com inteiro reordenar valores mudaria o significado de
 toda linha existente sem erro nenhum.
 
-**Só `nome` é `NOT NULL`**, e **não existe restrição de unicidade em coluna nenhuma** — a
+**`nome` e o derivado `nome_normalizado` são as únicas colunas `NOT NULL`**, e **não existe
+restrição de unicidade em coluna nenhuma** — a
 ficha não tem CPF nem documento, e duplicata se resolve com fusão, não com constraint.
 `convidado_por_id` e `fundida_em_id` são `uuid` sem chave estrangeira e sem propriedade de
 navegação. As colunas de auditoria **não existem ainda**: elas chegam com o interceptor que
