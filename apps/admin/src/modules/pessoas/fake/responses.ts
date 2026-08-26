@@ -66,13 +66,10 @@ function tokens(texto: string): string[] {
   return normalizar(texto).split(/\s+/).filter(Boolean);
 }
 
-function casaPorToken(nome: string, busca: string): boolean {
+function casaPorToken(nome: string, termo: string): boolean {
   const doNome = tokens(nome);
-  return tokens(busca).every((procurado) =>
-    doNome.some(
-      (existente) =>
-        existente.startsWith(procurado) || procurado.startsWith(existente),
-    ),
+  return tokens(termo).every((procurado) =>
+    doNome.some((existente) => existente.startsWith(procurado)),
   );
 }
 
@@ -85,12 +82,15 @@ function resolverFusao(pessoa: PessoaFichaResponse): PessoaFichaResponse {
   return sobrevivente ?? pessoa;
 }
 
-function desde(pessoa: PessoaFichaResponse): string {
-  return pessoa.vinculos[0].dataInicio;
+function vinculoVigente(pessoa: PessoaFichaResponse) {
+  return (
+    pessoa.vinculos.find((vinculo) => vinculo.dataFim === null) ??
+    pessoa.vinculos[pessoa.vinculos.length - 1]
+  );
 }
 
-function vinculoVigente(pessoa: PessoaFichaResponse) {
-  return pessoa.vinculos[pessoa.vinculos.length - 1];
+function desde(pessoa: PessoaFichaResponse): string {
+  return vinculoVigente(pessoa).dataInicio;
 }
 
 function visiveis(): PessoaFichaResponse[] {
@@ -100,29 +100,30 @@ function visiveis(): PessoaFichaResponse[] {
 export function buscarPessoas(
   params: PessoasSearchParams,
 ): Promise<PessoasSearchResponse> {
-  const termo = params.search.trim();
+  const termo = params.q.trim();
   if (termo === "") return responder({ results: [] });
 
-  const encontradas = new Map<string, PessoaSearchResult>();
+  const encontradas = new Map<string, PessoaFichaResponse>();
 
   for (const pessoa of pessoas) {
     if (!casaPorToken(pessoa.nome, termo)) continue;
 
     const alvo = resolverFusao(pessoa);
-    if (encontradas.has(alvo.id)) continue;
-
-    encontradas.set(alvo.id, {
-      id: alvo.id,
-      nome: alvo.nome,
-      situacao: alvo.situacao,
-      desde: desde(alvo),
-      convidadoPor: alvo.convidadoPor,
-    });
-
-    if (encontradas.size === MAXIMO_DA_BUSCA) break;
+    encontradas.set(alvo.id, alvo);
   }
 
-  return responder({ results: [...encontradas.values()] });
+  const results: PessoaSearchResult[] = [...encontradas.values()]
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+    .slice(0, MAXIMO_DA_BUSCA)
+    .map((pessoa) => ({
+      id: pessoa.id,
+      nome: pessoa.nome,
+      situacao: pessoa.situacao,
+      desde: desde(pessoa),
+      convidadoPor: pessoa.convidadoPor,
+    }));
+
+  return responder({ results });
 }
 
 export function listarPessoas(

@@ -151,7 +151,7 @@ export interface CadastrarPessoaResponse {
 }
 
 export interface PessoasSearchParams {
-  search: string;
+  q: string;
 }
 
 export interface PessoasListParams {

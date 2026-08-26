@@ -23,7 +23,7 @@ import type {
 export const pessoasKeys = {
   todas: ["pessoas"] as const,
   search: (params: PessoasSearchParams) =>
-    [...pessoasKeys.todas, "search", params.search] as const,
+    [...pessoasKeys.todas, "search", params.q] as const,
   list: (params: PessoasListParams) =>
     [...pessoasKeys.todas, "list", params] as const,
   ficha: (id: string) => [...pessoasKeys.todas, "ficha", id] as const,
@@ -37,7 +37,7 @@ export function usePessoasSearch(params: PessoasSearchParams) {
   return useQuery({
     queryKey: pessoasKeys.search(params),
     queryFn: () => buscarPessoas(params),
-    enabled: params.search.trim() !== "",
+    enabled: params.q.trim() !== "",
     placeholderData: keepPreviousData,
   });
 }

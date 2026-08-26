@@ -31,6 +31,7 @@ public sealed class MapeamentoTests
             "fundida_em_id uuid",
             "id uuid NOT NULL",
             "nome character varying(120) NOT NULL",
+            "nome_normalizado character varying(120) NOT NULL",
             "profissao character varying(120)",
         ],
         colunas);
@@ -79,7 +80,7 @@ public sealed class MapeamentoTests
 
         Assert.Equal(
         [
-            "pessoas(nome)",
+            "pessoas(nome_normalizado)",
             "vinculos_igreja(pessoa_id, data_fim)",
         ],
         indices);
