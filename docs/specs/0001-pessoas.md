@@ -65,6 +65,7 @@ quando a igreja passa a ter uso para o dado.
 |---|---|---|---|
 | `Id` | `Guid` | — | |
 | `Nome` | `string(120)` | cadastro | **Único obrigatório.** Não vazio depois de `Trim`. Parcial no cadastro, completado na apresentação |
+| `NomeNormalizado` | `string(120)` | — | Derivado de `Nome`: sem acento, em maiúsculas. Existe só para a busca; nenhuma tela o lê |
 | `ConvidadoPorId` | `Guid?` | cadastro | Referência a outra `Pessoa`. Sem navegação |
 | `FundidaEmId` | `Guid?` | — | Preenchido pela fusão. Não nulo = este registro foi absorvido |
 | `Celular` | `string(20)?` | apresentação | E.164. **Não é único** — 10 números são compartilhados na ficha real |
@@ -77,7 +78,7 @@ quando a igreja passa a ter uso para o dado.
 | `DataBatismo` | `date?` | apresentação | Não futura. Pode ser de outra igreja |
 | `Vinculos` | coleção | — | Dentro do agregado. Sem setter público |
 
-**Só `Nome` é `NOT NULL`.** Obrigatoriedade aqui não é propriedade do campo, é propriedade
+**Entre os campos coletados, só `Nome` é `NOT NULL`.** Obrigatoriedade aqui não é propriedade do campo, é propriedade
 da situação: a mesma `Pessoa` tem exigências diferentes conforme o vínculo, e a coluna só
 sabe dizer "sempre" ou "nunca". Se `DataNascimento` fosse obrigatória, o resultado não seria
 a igreja passar a coletá-la do visitante — seria alguém digitando `01/01/1900` para o
@@ -160,7 +161,8 @@ sobre a pessoa — disciplina, conflito —, então nasce com leitura restrita.
 
 Não existe `VinculoRepository` nem rota `/vinculos`. O vínculo se alcança pela pessoa.
 
-**Índices e unicidade:** índice em `Pessoa.Nome` para a busca do atendimento; índice em
+**Índices e unicidade:** índice em `Pessoa.NomeNormalizado` para a busca do atendimento — é a
+coluna que o filtro usa, e `Nome` não é consultado por ninguém; índice em
 `(PessoaId, DataFim)` para achar o vínculo vigente. **Nenhuma restrição de unicidade** — a
 ficha não tem CPF nem documento, e nome + data de nascimento é heurística, não chave (nas
 90 linhas há 2 pares de homônimos com datas diferentes). Duplicata se resolve com `Fundir`,
@@ -260,7 +262,7 @@ Todas as rotas sob `/api`, autenticadas. Nada de `Pessoa` aparece em `/public/*`
 
 | Método | Rota | Faz |
 |---|---|---|
-| `GET` | `/api/pessoas?search=` | Busca por nome. A tela da recepção |
+| `GET` | `/api/pessoas/search?q=` | Busca por nome. A tela da recepção |
 | `GET` | `/api/pessoas?situacao=&bairro=&page=&size=` | Lista filtrada e paginada |
 | `GET` | `/api/pessoas/aniversariantes?from=&to=` | A lista do domingo |
 | `GET` | `/api/pessoas/pauta?date=` | Visitantes do dia e aniversariantes da semana, juntos |
@@ -290,14 +292,27 @@ objeto de valor substituído em bloco, se vier, vem inteiro.
 **Nome de campo segue o ADR-0013, e a fronteira é a origem do nome, não a camada.** Campo que
 existe por causa da igreja fica em português — `nome`, `situacao`, `bairro`, `desde`,
 `convidadoPor`, `dataInicio`, `data` do aniversário. Campo que existe por causa do transporte
-fica em inglês — `search`, `page`, `size`, `total`, `results`, `items`, `from`, `to`, `date`.
+fica em inglês — `q`, `page`, `size`, `total`, `results`, `items`, `from`, `to`, `date`.
 Paginação e busca não são vocabulário desta igreja.
 
-### `GET /api/pessoas?search=joão gue`
+### `GET /api/pessoas/search?q=joão gue`
 
 A rota mais crítica do sistema: roda enquanto a recepcionista digita, no celular, com a
-pessoa esperando. Casamento por token, sem acento, nos dois sentidos (RN-21). Máximo de 10
-resultados.
+pessoa esperando. Casamento por token, sem acento, em qualquer ordem (RN-21). Máximo de 10
+resultados, ordenados pelo nome.
+
+**Rota própria, e não `?search=` sobre `/api/pessoas`.** A lista da secretaria devolve outra
+projeção, outro envelope e paginação. Em OpenAPI, path mais método é **uma** operação com
+**um** schema de resposta: as duas na mesma rota fariam o cliente gerado herdar uma união de
+tipos, e a invariante 5 do `CLAUDE.md` entregaria um cliente sem tipos úteis. É a mesma
+separação que Stripe (`/v1/customers/search`), GitHub (`/search/users`) e a AIP-136 do Google
+fazem, pelo mesmo motivo. O parâmetro é `q` porque `search?search=` é redundante.
+
+**O token digitado precisa ser prefixo de um token do nome** — `gue` acha `Guedes`. O sentido
+inverso não vale: `joão guedes` **não** acha um registro gravado como `João Gue`. Suportá-lo
+exigiria os tokens do nome como linhas numa tabela filha, porque o SQL não quebra string em
+token dentro do `WHERE`; o caso perdido — nome gravado truncado no meio da palavra — é raro
+demais para pagar esse esquema.
 
 ```jsonc
 // 200
@@ -313,6 +328,11 @@ a recepção não precisa e endereço é o campo que mais eleva o custo de um va
 que devolve ficha completa espalha dado pessoal por toda tela que faz autocomplete.
 `desde` e `convidadoPor` estão aí porque são o único desempate de homônimo que o visitante
 tem.
+
+**`desde` é a `DataInicio` do vínculo vigente**, e a mesma regra serve às duas leituras: para
+visitante é a data da primeira visita, porque não se volta a `Visitante` de situação nenhuma
+(RN-11) e visitante que retorna não abre vínculo novo (RN-23); para membro é o início da
+membresia atual. Lê-se junto com `situacao` — "Membro desde 2024-09-15".
 
 ### `GET /api/pessoas?situacao=Membro&bairro=centro&page=1&size=25`
 
@@ -569,8 +589,8 @@ Um campo de busca. A pessoa digita o nome e o resultado aparece enquanto digita:
 - **Não achou** → o botão de cadastrar já vem com o nome digitado preenchido. Falta um campo,
   quem convidou, e acabou.
 
-Cada resultado mostra **o que desempata homônimo**: a data da primeira visita e quem
-convidou. É o único desempate que o visitante tem — sem data de nascimento e sem telefone —,
+Cada resultado mostra **o que desempata homônimo**: o `desde` — que para o visitante é a data
+da primeira visita — e quem convidou. É o único desempate que o visitante tem — sem data de nascimento e sem telefone —,
 e é bom, porque a recepcionista costuma conhecer quem convidou.
 
 **A pauta é metade da tela, e é o que mata o papel.** Aquele papel não é só um formulário: é
@@ -718,7 +738,7 @@ Só é bloqueante a pergunta que muda o modelo.
 - [ ] Os quatro métodos de transição: RN-5 a RN-12
 - [ ] [P] Teste parametrizado da matriz inteira — 25 pares mais as 5 entradas de cadastro,
       exaustivo. É ele que garante que uma situação nova no enum não passe sem decisão
-- [ ] [P] `GET /api/pessoas?search=` — a rota mais crítica (seção 6)
+- [ ] [P] `GET /api/pessoas/search?q=` — a rota mais crítica (seção 6)
 - [ ] `POST /api/pessoas` e `PATCH /api/pessoas/{id}` (seção 6)
 - [ ] As quatro rotas de transição (seção 6)
 - [ ] `GET /api/pessoas/aniversariantes`: RN-25
