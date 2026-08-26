@@ -263,7 +263,7 @@ Todas as rotas sob `/api`, autenticadas. Nada de `Pessoa` aparece em `/public/*`
 | Método | Rota | Faz |
 |---|---|---|
 | `GET` | `/api/pessoas/search?q=` | Busca por nome. A tela da recepção |
-| `GET` | `/api/pessoas?situacao=&bairro=&page=&size=` | Lista filtrada e paginada |
+| `GET` | `/api/pessoas?q=&situacao=&bairro=&page=&size=` | Lista filtrada e paginada |
 | `GET` | `/api/pessoas/aniversariantes?from=&to=` | A lista do domingo |
 | `GET` | `/api/pessoas/pauta?date=` | Visitantes do dia e aniversariantes da semana, juntos |
 | `GET` | `/api/pessoas/{id}` | Ficha completa com histórico |
@@ -334,9 +334,19 @@ visitante é a data da primeira visita, porque não se volta a `Visitante` de si
 (RN-11) e visitante que retorna não abre vínculo novo (RN-23); para membro é o início da
 membresia atual. Lê-se junto com `situacao` — "Membro desde 2024-09-15".
 
-### `GET /api/pessoas?situacao=Membro&bairro=centro&page=1&size=25`
+### `GET /api/pessoas?q=silva&situacao=Membro&bairro=centro&page=1&size=25`
 
 A tela da secretaria. `page` é 1-based; `size` tem teto no servidor.
+
+**O `q` daqui não é a busca da recepção, e a diferença é a regra que separou as duas rotas.**
+Ele casa por token contra o mesmo `NomeNormalizado`, mas devolve a **mesma** linha de lista,
+no **mesmo** envelope paginado — logo é filtro da coleção, como `situacao` e `bairro`, e não
+recurso novo. A busca da recepção devolve outra projeção, outro envelope e teto fixo em vez
+de paginação, e por isso é rota. Envelope igual, parâmetro; envelope diferente, rota — nos
+dois sentidos, senão o critério que justificou `/search` não se sustenta.
+
+A tela da secretaria filtra por nome **e** por bairro ao mesmo tempo, o que a rota da recepção
+não faria: lá não existe filtro nenhum além do nome, de propósito.
 
 ```jsonc
 // 200
