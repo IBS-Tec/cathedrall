@@ -10,8 +10,9 @@
 > [Formato de erro](#formato-de-erro). O kernel está em
 > [`src/Kernel/README.md`](src/Kernel/README.md). **O primeiro módulo existe:**
 > `CathedrAll.Pessoas`, com o `PessoasDbContext` no schema `pessoas`, as entidades mapeadas,
-> as invariantes do histórico de vínculos (RN-1 a RN-4) e **uma rota: a busca da recepção,
-> `GET /api/pessoas/search`**. O módulo tem
+> as invariantes do histórico de vínculos (RN-1 a RN-4) e **duas rotas de leitura: a busca da
+> recepção, `GET /api/pessoas/search`, e a lista da secretaria, `GET /api/pessoas`**. Nenhuma
+> escreve. O módulo tem
 > [README próprio](src/Modules/CathedrAll.Pessoas/README.md), e é lá que estão as decisões
 > dele. Não existem cadastro, transições, ficha, autenticação nem audit log, mas **o
 > anel de transação já está registrado**, fechado sobre o `PessoasDbContext`. Existe `ICurrentUser`, com implementação
@@ -61,9 +62,10 @@ O usuário e a senha estão em `infra/compose/.env`, criados pelo `initdb/01-ban
 | `GET /health` | anônimo | nada | O processo responde. Sempre `200 Healthy` |
 | `GET /health/ready` | anônimo | Postgres | `200 Healthy` ou `503 Unhealthy` |
 | `GET /api/pessoas/search?q=` | **anônima ainda** | — | A busca da recepção. Projeção pobre, no máximo 10 resultados |
+| `GET /api/pessoas?q=&situacao=&bairro=&page=&size=` | **anônima ainda** | — | A lista da secretaria. Filtrada e paginada, `size` com padrão 25 e teto 50 |
 
-A rota de busca **deveria ser autenticada** — a seção 7 da spec-0001 diz que tudo sob `/api`
-é —, e não é, porque não há autenticação. O portão que protege isso não é técnico: **nenhum
+As duas rotas de `/api/pessoas` **deveriam ser autenticadas** — a seção 7 da spec-0001 diz que
+tudo sob `/api` é —, e não são, porque não há autenticação. O portão que protege isso não é técnico: **nenhum
 dado de pessoa real entra em banco nenhum, nem no de desenvolvimento**, antes de a
 autenticação e o audit log existirem. Ver [Antes do primeiro CRUD](#antes-do-primeiro-crud).
 O `.RequireAuthorization()` entra uma vez, no `MapGroup("/api/pessoas")`.
@@ -175,7 +177,20 @@ O `GlobalExceptionHandler` tem três caminhos, e a ordem entre eles é o desenho
 | --- | --- |
 | `RequestAborted` cancelado | log de rotina, sem corpo. Não há ninguém do outro lado do socket |
 | `Response.HasStarted` | log de erro e devolve `false`: não dá mais para trocar o status |
+| `BadHttpRequestException` | log em `Information`, e **400** com `code` `Request.Malformed` |
 | qualquer outra exceção | log de erro **com stack trace**, e 500 em problem+json |
+
+**O caminho do 400 existe porque a lista da secretaria o alcançou primeiro.** `BadHttpRequestException`
+é o que o binding de Minimal API lança quando um parâmetro tipado não converte — `?situacao=lixo`,
+`?page=abc`. Sem esse ramo, o handler classificava tudo como falha inesperada e a API respondia
+**500 a um erro de digitação**, além de gerar `LogError` com stack trace a cada tecla errada da
+secretaria. Log de erro que dispara por engano de usuário é log que ninguém lê mais — a mesma
+razão pela qual a seção 7 da spec-0001 não audita cada tecla da busca.
+
+O defeito é antigo; ele só era inalcançável enquanto a única rota recebia `string?`, que nunca
+falha em converter. `Request.Malformed` fica **fora** da tabela de erros da seção 6 da spec de
+propósito: aquela tabela ramifica em regra de domínio do módulo, e este erro é de transporte,
+produzido pelo host para qualquer rota — o mesmo lugar de `Server.UnexpectedFailure`.
 
 **O teste do cancelamento é o token, não o tipo da exceção.** Um timeout interno também lança
 `OperationCanceledException`, e esse **é** falha de verdade — se a classificação fosse pelo
@@ -201,19 +216,23 @@ cancelamento — treina o time a ignorar o canal.
 
 ### O que os testes não cobrem
 
-**O caminho do 500 é verificado no handler, não pelo middleware.** Os testes chamam
+**O caminho do 500 ainda é verificado no handler, não pelo middleware.** Os testes chamam
 `TryHandleAsync` direto, com um `DefaultHttpContext`; ninguém sobe a aplicação e provoca uma
-exceção de verdade, porque não existe endpoint que lance. O `UseExceptionHandler` estar na
-ordem certa do pipeline é hoje conferido a olho.
+exceção inesperada de verdade, porque não existe endpoint que lance.
 
-Vale saber de uma armadilha para quando esse teste existir: em Development o `WebApplication`
-põe o `DeveloperExceptionPage` na frente do pipeline, e o `WebApplicationFactory` sobe em
-Development por padrão — o teste veria HTML em vez de problem+json. A saída é fixar
-`UseEnvironment("Production")`.
+**O caminho do 400 fechou essa lacuna pela metade.** `ListEndpointTests` bate em
+`/api/pessoas?situacao=lixo` por HTTP de verdade e afirma sobre o corpo: o
+`UseExceptionHandler` na ordem certa, o `code` na rede e o problem+json passam a ser
+verificados de ponta a ponta — para esse ramo. O do 500 continua conferido a olho.
 
-**O campo `code` na rede** é verificado na serialização — o teste do handler lê o JSON escrito
-no corpo — mas não através de um endpoint real, porque nenhum devolve `Result` ainda. O
-primeiro módulo é quem fecha essa lacuna.
+Vale saber de uma armadilha para quando o teste do 500 existir: em Development o
+`WebApplication` põe o `DeveloperExceptionPage` na frente do pipeline, e o
+`WebApplicationFactory` sobe em Development por padrão — o teste poderia ver HTML em vez de
+problem+json. A saída é fixar `UseEnvironment("Production")`.
+
+**O `code` de um `Result` que falhou** continua sem teste através de endpoint real, porque
+nenhuma rota devolve `Result` ainda — as duas de `Pessoas` são consultas que sempre respondem
+200. A primeira rota de escrita é quem fecha isso.
 
 ## Usuário atual
 
