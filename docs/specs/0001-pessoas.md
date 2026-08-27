@@ -122,7 +122,8 @@ uma razão para "quantos visitantes temos" não ser pergunta com resposta.
 | `Logradouro` | `string(150)?` | não | |
 | `Numero` | `string(10)?` | não | **String, não inteiro** — existe `s/n` e existe `123-A` |
 | `Complemento` | `string(60)?` | não | |
-| `Bairro` | `string(80)` | **sim** | Gravado normalizado |
+| `Bairro` | `string(80)` | **sim** | Gravado com `Trim`, como foi digitado. É o que a tela mostra |
+| `BairroNormalizado` | `string(80)` | — | Derivado de `Bairro`: sem acento, em maiúsculas. Existe só para o filtro; nenhuma tela o lê |
 | `Cidade` | `string(80)?` | não | |
 | `Uf` | `string(2)?` | não | Uma das 27 |
 
@@ -140,10 +141,21 @@ variável, e honesto sobre isso.
 substituído **em bloco** — ninguém edita só o logradouro; a pessoa se muda e o endereço
 inteiro troca.
 
-`Bairro` é normalizado na escrita — `Trim`, caixa e acento consistentes. Sem isso o filtro é
-inútil: na ficha real são 50 valores distintos que viram 34 depois de normalizados. Lista
-fixa de bairros fica para depois e sai **do dado**, não da imaginação; mesmo caminho do
-`Motivo`.
+`Bairro` é normalizado na escrita. Sem isso o filtro é inútil: na ficha real são 50 valores
+distintos que viram 34 depois de normalizados. Lista fixa de bairros fica para depois e sai
+**do dado**, não da imaginação; mesmo caminho do `Motivo`.
+
+**São duas colunas, e não uma, pelo mesmo motivo de `Nome`.** A normalização que o filtro
+precisa apaga o acento, e isso não tem volta: de `GROTAO` não se recupera `Grotão`, e a
+melhor tentativa da tela produz `Grotao`. Manter só a coluna normalizada quebraria a
+apresentação para sempre; manter só a digitada quebraria o filtro, porque casar sem acento
+exigiria `unaccent` dentro do banco — recusado no módulo, por não ser `IMMUTABLE` e por não
+existir no Sqlite dos testes.
+
+A regra que decide, e que vale para todo campo futuro: **normalização destrutiva em campo
+que alguém lê são duas colunas.** `Bairro` guarda o `Trim`, que não perde nada;
+`BairroNormalizado` guarda a caixa e o acento, que perdem. A resposta da API leva o
+primeiro; o `WHERE` usa o segundo, e ele não aparece em resposta nenhuma.
 
 ### `VinculoIgreja` — dentro do agregado
 
@@ -163,7 +175,9 @@ Não existe `VinculoRepository` nem rota `/vinculos`. O vínculo se alcança pel
 
 **Índices e unicidade:** índice em `Pessoa.NomeNormalizado` para a busca do atendimento — é a
 coluna que o filtro usa, e `Nome` não é consultado por ninguém; índice em
-`(PessoaId, DataFim)` para achar o vínculo vigente. **Nenhuma restrição de unicidade** — a
+`(PessoaId, DataFim)` para achar o vínculo vigente. **`BairroNormalizado` não tem índice**:
+ele é filtro de uma lista paginada sobre ~86 linhas, e índice que não paga aluguel é dívida.
+**Nenhuma restrição de unicidade** — a
 ficha não tem CPF nem documento, e nome + data de nascimento é heurística, não chave (nas
 90 linhas há 2 pares de homônimos com datas diferentes). Duplicata se resolve com `Fundir`,
 não com constraint.
@@ -235,7 +249,9 @@ em duas colunas.
 - **RN-18** — Só `Nome` é obrigatório. Os demais campos ficam nulos até serem coletados, e
   nulo nunca é substituído por valor de preenchimento. A apresentação **não** é recusada por
   ficha incompleta.
-- **RN-19** — `Endereco`, se presente, tem `Bairro`. `Bairro` é gravado normalizado.
+- **RN-19** — `Endereco`, se presente, tem `Bairro`. `Bairro` é gravado com `Trim`, como foi
+  digitado, e `BairroNormalizado` é derivado dele — sem acento, em maiúsculas. O filtro casa
+  contra o derivado; a resposta leva o digitado.
 - **RN-20** — `ConvidadoPorId` referencia uma `Pessoa` cadastrada, ou é nulo. Nunca o nome
   de quem não está no sistema. Uma pessoa não pode convidar a si mesma.
 - **RN-21** — `Nome` pode ser parcial: no cadastro de visitante a recepção pega o primeiro
@@ -336,7 +352,14 @@ membresia atual. Lê-se junto com `situacao` — "Membro desde 2024-09-15".
 
 ### `GET /api/pessoas?q=silva&situacao=Membro&bairro=centro&page=1&size=25`
 
-A tela da secretaria. `page` é 1-based; `size` tem teto no servidor.
+A tela da secretaria. `page` é 1-based; `size` tem teto no servidor: **padrão 25, máximo 50**.
+
+**O teto tem que ser menor que a congregação, ou não é teto.** Com 86 pessoas, um limite de
+100 — o palpite reflexo — devolveria a igreja inteira numa requisição e faria "nunca a lista
+inteira" virar letra morta. Exportação está fora de escopo, então ninguém precisa das 86 de
+uma vez. `page` e `size` **voltam corrigidos na resposta**: pedir `size=999` e receber 50 sem
+ser avisado faz a tela escrever "1 a 999 de 86". Valor ausente cai no padrão; valor absurdo é
+corrigido, não recusado — filtro mal digitado não merece 400.
 
 **O `q` daqui não é a busca da recepção, e a diferença é a regra que separou as duas rotas.**
 Ele casa por token contra o mesmo `NomeNormalizado`, mas devolve a **mesma** linha de lista,
@@ -749,6 +772,9 @@ Só é bloqueante a pergunta que muda o modelo.
 - [ ] [P] Teste parametrizado da matriz inteira — 25 pares mais as 5 entradas de cadastro,
       exaustivo. É ele que garante que uma situação nova no enum não passe sem decisão
 - [ ] [P] `GET /api/pessoas/search?q=` — a rota mais crítica (seção 6)
+- [ ] `GET /api/pessoas?q=&situacao=&bairro=&page=&size=` — a lista da secretaria (seção 6).
+      Outra projeção e outro envelope que a busca, e por isso outra rota. Traz junto a
+      segunda coluna de `Bairro` (RN-19), sem a qual o filtro por bairro não existe
 - [ ] `POST /api/pessoas` e `PATCH /api/pessoas/{id}` (seção 6)
 - [ ] As quatro rotas de transição (seção 6)
 - [ ] `GET /api/pessoas/aniversariantes`: RN-25
