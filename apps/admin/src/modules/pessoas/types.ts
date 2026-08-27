@@ -155,10 +155,11 @@ export interface PessoasSearchParams {
 }
 
 export interface PessoasListParams {
+  q?: string;
   situacao?: Situacao;
   bairro?: string;
-  page: number;
-  size: number;
+  page?: number;
+  size?: number;
 }
 
 export interface AniversariantesParams {
