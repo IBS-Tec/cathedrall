@@ -23,6 +23,8 @@ import { createRandom } from "./random";
 
 const ATRASO_MS = 220;
 const MAXIMO_DA_BUSCA = 10;
+const TAMANHO_PADRAO_DA_LISTA = 25;
+const TAMANHO_MAXIMO_DA_LISTA = 50;
 
 const random = createRandom(Date.now());
 
@@ -129,18 +131,30 @@ export function buscarPessoas(
 export function listarPessoas(
   params: PessoasListParams,
 ): Promise<PessoasPagedResponse> {
+  const page = Math.max(params.page ?? 1, 1);
+  const size = Math.min(
+    Math.max(params.size ?? TAMANHO_PADRAO_DA_LISTA, 1),
+    TAMANHO_MAXIMO_DA_LISTA,
+  );
+
   const filtradas = visiveis()
+    .filter(
+      (pessoa) => !params.q?.trim() || casaPorToken(pessoa.nome, params.q),
+    )
     .filter((pessoa) => !params.situacao || pessoa.situacao === params.situacao)
     .filter(
       (pessoa) =>
         !params.bairro ||
         normalizar(pessoa.endereco?.bairro ?? "") === normalizar(params.bairro),
     )
-    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    .sort(
+      (a, b) =>
+        a.nome.localeCompare(b.nome, "pt-BR") || a.id.localeCompare(b.id),
+    );
 
-  const inicio = (params.page - 1) * params.size;
+  const inicio = (page - 1) * size;
   const items: PessoaListItem[] = filtradas
-    .slice(inicio, inicio + params.size)
+    .slice(inicio, inicio + size)
     .map((pessoa) => ({
       id: pessoa.id,
       nome: pessoa.nome,
@@ -149,12 +163,7 @@ export function listarPessoas(
       bairro: pessoa.endereco?.bairro ?? null,
     }));
 
-  return responder({
-    items,
-    page: params.page,
-    size: params.size,
-    total: filtradas.length,
-  });
+  return responder({ items, page, size, total: filtradas.length });
 }
 
 export function obterFicha(id: string): Promise<PessoaFichaResponse> {
