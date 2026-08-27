@@ -14,24 +14,16 @@ internal sealed class SearchPessoasHandler(PessoasDbContext context)
         SearchPessoasQuery request,
         CancellationToken cancellationToken)
     {
-        string[] tokens = TextNormalization.Normalize(request.Term)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        string[] tokens = NomeFilter.Tokenize(request.Term);
 
         if (tokens.Length == 0)
         {
             return new SearchPessoasResponse([]);
         }
 
-        IQueryable<Pessoa> casam = context.Pessoas;
-
-        foreach (string token in tokens)
-        {
-            casam = casam.Where(pessoa =>
-                pessoa.NomeNormalizado.StartsWith(token)
-                || pessoa.NomeNormalizado.Contains(" " + token));
-        }
-
-        IQueryable<PessoaId> sobreviventes = casam.Select(pessoa => pessoa.FundidaEmId ?? pessoa.Id);
+        IQueryable<PessoaId> sobreviventes = NomeFilter
+            .Apply(context.Pessoas, tokens)
+            .Select(pessoa => pessoa.FundidaEmId ?? pessoa.Id);
 
         List<PessoaEncontrada> results = await context.Pessoas
             .Where(pessoa => sobreviventes.Contains(pessoa.Id))
