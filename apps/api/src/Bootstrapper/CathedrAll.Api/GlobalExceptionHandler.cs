@@ -11,6 +11,10 @@ internal sealed class GlobalExceptionHandler(ILoggerFactory factory) : IExceptio
         "Server.UnexpectedFailure",
         "Não foi possível concluir a operação.");
 
+    private static readonly Error Malformed = Error.Validation(
+        "Request.Malformed",
+        "A requisição não pôde ser lida.");
+
     private readonly ILogger _logger = factory.CreateLogger(Category);
 
     public async ValueTask<bool> TryHandleAsync(
@@ -30,6 +34,15 @@ internal sealed class GlobalExceptionHandler(ILoggerFactory factory) : IExceptio
             _logger.LogError(exception, "Unhandled exception after the response had started.");
 
             return false;
+        }
+
+        if (exception is BadHttpRequestException)
+        {
+            _logger.LogInformation(exception, "Malformed request.");
+
+            await Malformed.ToProblem().ExecuteAsync(httpContext);
+
+            return true;
         }
 
         _logger.LogError(exception, "Unhandled exception.");

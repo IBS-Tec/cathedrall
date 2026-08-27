@@ -59,6 +59,22 @@ public sealed class GlobalExceptionHandlerTests
     }
 
     [Fact]
+    public async Task Requisicao_malformada_deve_responder_400_e_nao_500()
+    {
+        DefaultHttpContext context = NewContext();
+
+        bool handled = await Handle(context, new BadHttpRequestException(Secret));
+
+        Assert.True(handled);
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+
+        string corpo = await ReadBody(context);
+
+        Assert.Contains("\"code\":\"Request.Malformed\"", corpo, StringComparison.Ordinal);
+        Assert.DoesNotContain(Secret, corpo, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Resposta_ja_iniciada_nao_deve_ser_tratada()
     {
         FeatureCollection features = new();
