@@ -7,4 +7,9 @@ internal sealed record Endereco(
     string? Complemento,
     string Bairro,
     string? Cidade,
-    string? Uf);
+    string? Uf)
+{
+    public string Bairro { get; } = Bairro.Trim();
+
+    public string BairroNormalizado { get; private set; } = TextNormalization.Normalize(Bairro);
+}

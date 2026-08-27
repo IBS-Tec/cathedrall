@@ -21,6 +21,7 @@ public sealed class MapeamentoTests
             "data_nascimento date",
             "email character varying(200)",
             "endereco_bairro character varying(80)",
+            "endereco_bairro_normalizado character varying(80)",
             "endereco_cep character varying(8)",
             "endereco_cidade character varying(80)",
             "endereco_complemento character varying(60)",

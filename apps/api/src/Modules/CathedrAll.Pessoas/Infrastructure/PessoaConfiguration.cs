@@ -32,6 +32,7 @@ internal sealed class PessoaConfiguration : IEntityTypeConfiguration<Pessoa>
             endereco.Property(e => e.Numero).HasMaxLength(10);
             endereco.Property(e => e.Complemento).HasMaxLength(60);
             endereco.Property(e => e.Bairro).HasMaxLength(80);
+            endereco.Property(e => e.BairroNormalizado).HasMaxLength(80);
             endereco.Property(e => e.Cidade).HasMaxLength(80);
             endereco.Property(e => e.Uf).HasMaxLength(2);
         });
