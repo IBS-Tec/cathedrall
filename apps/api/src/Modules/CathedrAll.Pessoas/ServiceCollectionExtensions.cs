@@ -32,6 +32,10 @@ public static class ServiceCollectionExtensions
             IRequestHandler<ListPessoasQuery, ListPessoasResponse>,
             ListPessoasHandler>();
 
+        services.TryAddScoped<
+            IRequestHandler<SearchAniversariantesQuery, SearchAniversariantesResponse>,
+            SearchAniversariantesHandler>();
+
         return services;
     }
 
