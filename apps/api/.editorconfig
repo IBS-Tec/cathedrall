@@ -216,6 +216,14 @@ dotnet_diagnostic.SA1101.severity = none
 # SA1309: Field names should not begin with underscore
 dotnet_diagnostic.SA1309.severity = none
 
+# SA1407: Arithmetic expressions should declare precedence
+# Conflita com dotnet_style_parentheses_in_arithmetic_binary_operators = never_if_unnecessary
+dotnet_diagnostic.SA1407.severity = none
+
+# SA1408: Conditional expressions should declare precedence
+# Conflita com dotnet_style_parentheses_in_other_binary_operators = never_if_unnecessary
+dotnet_diagnostic.SA1408.severity = none
+
 # SA1413: Use trailing comma in multi-line initializers
 dotnet_diagnostic.SA1413.severity = none
 
