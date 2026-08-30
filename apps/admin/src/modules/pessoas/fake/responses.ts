@@ -16,9 +16,10 @@ import type {
   PessoasPagedResponse,
   PessoasSearchParams,
   PessoasSearchResponse,
+  TipoAniversario,
 } from "../types";
 import { adicionarPessoa, pessoas } from "./dataset";
-import { comAnoDe, hoje, noIntervaloAnual } from "./dates";
+import { diasDoIntervalo, hoje, mesDia } from "./dates";
 import { createRandom } from "./random";
 
 const ATRASO_MS = 220;
@@ -174,7 +175,13 @@ export function obterFicha(id: string): Promise<PessoaFichaResponse> {
   return responder(pessoa);
 }
 
+const ORDEM_DO_TIPO: Record<TipoAniversario, number> = {
+  Nascimento: 0,
+  Casamento: 1,
+};
+
 function aniversariantesEntre(de: string, ate: string): Aniversariante[] {
+  const dias = diasDoIntervalo(de, ate);
   const lista: Aniversariante[] = [];
 
   for (const pessoa of visiveis()) {
@@ -182,26 +189,39 @@ function aniversariantesEntre(de: string, ate: string): Aniversariante[] {
       continue;
     }
 
-    if (pessoa.dataNascimento && noIntervaloAnual(pessoa.dataNascimento, de, ate)) {
+    const nascimento = pessoa.dataNascimento
+      ? dias.get(mesDia(pessoa.dataNascimento))
+      : undefined;
+
+    if (nascimento) {
       lista.push({
         id: pessoa.id,
         nome: pessoa.nome,
         tipo: "Nascimento",
-        data: comAnoDe(pessoa.dataNascimento, de),
+        data: nascimento,
       });
     }
 
-    if (pessoa.dataCasamento && noIntervaloAnual(pessoa.dataCasamento, de, ate)) {
+    const casamento = pessoa.dataCasamento
+      ? dias.get(mesDia(pessoa.dataCasamento))
+      : undefined;
+
+    if (casamento) {
       lista.push({
         id: pessoa.id,
         nome: pessoa.nome,
         tipo: "Casamento",
-        data: comAnoDe(pessoa.dataCasamento, de),
+        data: casamento,
       });
     }
   }
 
-  return lista.sort((a, b) => a.data.localeCompare(b.data));
+  return lista.sort(
+    (a, b) =>
+      a.data.localeCompare(b.data) ||
+      ORDEM_DO_TIPO[a.tipo] - ORDEM_DO_TIPO[b.tipo] ||
+      a.nome.localeCompare(b.nome, "pt-BR"),
+  );
 }
 
 export function listarAniversariantes(

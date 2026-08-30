@@ -17,6 +17,7 @@ public static class PessoasEndpoints
 
         pessoas.MapGet("/", ListAsync).WithName("ListPessoas");
         pessoas.MapGet("/search", SearchAsync).WithName("SearchPessoas");
+        pessoas.MapGet("/aniversariantes", SearchAniversariantesAsync).WithName("SearchAniversariantes");
 
         return builder;
     }
@@ -46,6 +47,20 @@ public static class PessoasEndpoints
         SearchPessoasResponse response = await sender
             .SendAsync<SearchPessoasQuery, SearchPessoasResponse>(
                 new SearchPessoasQuery(term ?? string.Empty),
+                cancellationToken);
+
+        return TypedResults.Ok(response);
+    }
+
+    private static async Task<Ok<SearchAniversariantesResponse>> SearchAniversariantesAsync(
+        DateOnly from,
+        DateOnly to,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        SearchAniversariantesResponse response = await sender
+            .SendAsync<SearchAniversariantesQuery, SearchAniversariantesResponse>(
+                new SearchAniversariantesQuery(from, to),
                 cancellationToken);
 
         return TypedResults.Ok(response);
