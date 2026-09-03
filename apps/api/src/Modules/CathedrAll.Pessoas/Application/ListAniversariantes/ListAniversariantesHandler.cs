@@ -1,17 +1,18 @@
 using CathedrAll.Kernel.Application;
+using CathedrAll.Kernel.Domain;
 using CathedrAll.Pessoas.Domain;
 using CathedrAll.Pessoas.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace CathedrAll.Pessoas.Application;
 
-internal sealed class SearchAniversariantesHandler(PessoasDbContext context)
-    : IRequestHandler<SearchAniversariantesQuery, SearchAniversariantesResponse>
+internal sealed class ListAniversariantesHandler(PessoasDbContext context)
+    : IRequestHandler<ListAniversariantesQuery, Result<ListAniversariantesResponse>>
 {
     private const int MaximumDays = 31;
 
-    public async Task<SearchAniversariantesResponse> HandleAsync(
-        SearchAniversariantesQuery request,
+    public async Task<Result<ListAniversariantesResponse>> HandleAsync(
+        ListAniversariantesQuery request,
         CancellationToken cancellationToken)
     {
         Dictionary<int, DateOnly> intervalo = DiasDoIntervalo(request.From, request.To);
@@ -45,7 +46,7 @@ internal sealed class SearchAniversariantesHandler(PessoasDbContext context)
                 pessoa.DataCasamento!.Value))
             .ToListAsync(cancellationToken);
 
-        return new SearchAniversariantesResponse(
+        return new ListAniversariantesResponse(
             [.. nascimentos
                 .Concat(casamentos)
                 .Select(aniversario => aniversario with { Data = intervalo[MonthDay(aniversario.Data)] })

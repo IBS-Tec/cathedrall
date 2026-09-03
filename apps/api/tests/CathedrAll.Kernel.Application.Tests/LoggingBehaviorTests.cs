@@ -92,13 +92,13 @@ public sealed class LoggingBehaviorTests
         {
             services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
             services.AddLoggingBehavior();
-            services.AddSingleton<IRequestHandler<FakeResultCommand, Result<string>>>(new RejectingHandler());
+            services.AddSingleton<IRequestHandler<FakeCommand, Result<string>>>(new RejectingHandler());
         });
 
         using IServiceScope scope = provider.CreateScope();
 
         Result<string> result = await Scenario.SenderFrom(scope)
-            .SendAsync<FakeResultCommand, Result<string>>(new FakeResultCommand(Secret), CancellationToken.None);
+            .SendAsync<FakeCommand, Result<string>>(new FakeCommand(Secret), CancellationToken.None);
 
         LogRecord record = Assert.Single(records);
         KeyValuePair<string, object?> code = Assert.Single(record.State, field => field.Key == "ErrorCode");
@@ -122,13 +122,13 @@ public sealed class LoggingBehaviorTests
         {
             services.AddSingleton<ILoggerFactory>(new FakeLoggerFactory(records));
             services.AddLoggingBehavior();
-            services.AddSingleton<IRequestHandler<FakeResultCommand, Result<string>>>(new AcceptingHandler());
+            services.AddSingleton<IRequestHandler<FakeCommand, Result<string>>>(new AcceptingHandler());
         });
 
         using IServiceScope scope = provider.CreateScope();
 
         await Scenario.SenderFrom(scope)
-            .SendAsync<FakeResultCommand, Result<string>>(new FakeResultCommand("qualquer"), CancellationToken.None);
+            .SendAsync<FakeCommand, Result<string>>(new FakeCommand("qualquer"), CancellationToken.None);
 
         LogRecord record = Assert.Single(records);
 

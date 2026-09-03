@@ -1,4 +1,6 @@
 using CathedrAll.Kernel.Application;
+using CathedrAll.Kernel.Domain;
+using CathedrAll.Kernel.Web;
 using CathedrAll.Pessoas.Application;
 using CathedrAll.Pessoas.Domain;
 using Microsoft.AspNetCore.Builder;
@@ -17,12 +19,13 @@ public static class PessoasEndpoints
 
         pessoas.MapGet("/", ListAsync).WithName("ListPessoas");
         pessoas.MapGet("/search", SearchAsync).WithName("SearchPessoas");
-        pessoas.MapGet("/aniversariantes", SearchAniversariantesAsync).WithName("SearchAniversariantes");
+        pessoas.MapGet("/aniversariantes", ListAniversariantesAsync).WithName("ListAniversariantes");
+        pessoas.MapGet("/{id:guid}", GetFichaPessoaAsync).WithName("GetFichaPessoa");
 
         return builder;
     }
 
-    private static async Task<Ok<ListPessoasResponse>> ListAsync(
+    private static async Task<Results<Ok<ListPessoasResponse>, ProblemHttpResult>> ListAsync(
         [FromQuery(Name = "q")] string? term,
         Situacao? situacao,
         string? bairro,
@@ -31,38 +34,51 @@ public static class PessoasEndpoints
         ISender sender,
         CancellationToken cancellationToken)
     {
-        ListPessoasResponse response = await sender
-            .SendAsync<ListPessoasQuery, ListPessoasResponse>(
+        Result<ListPessoasResponse> result = await sender
+            .SendAsync<ListPessoasQuery, Result<ListPessoasResponse>>(
                 new ListPessoasQuery(term, situacao, bairro, page, size),
                 cancellationToken);
 
-        return TypedResults.Ok(response);
+        return result.ToOk();
     }
 
-    private static async Task<Ok<SearchPessoasResponse>> SearchAsync(
+    private static async Task<Results<Ok<SearchPessoasResponse>, ProblemHttpResult>> SearchAsync(
         [FromQuery(Name = "q")] string? term,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        SearchPessoasResponse response = await sender
-            .SendAsync<SearchPessoasQuery, SearchPessoasResponse>(
+        Result<SearchPessoasResponse> result = await sender
+            .SendAsync<SearchPessoasQuery, Result<SearchPessoasResponse>>(
                 new SearchPessoasQuery(term ?? string.Empty),
                 cancellationToken);
 
-        return TypedResults.Ok(response);
+        return result.ToOk();
     }
 
-    private static async Task<Ok<SearchAniversariantesResponse>> SearchAniversariantesAsync(
+    private static async Task<Results<Ok<ListAniversariantesResponse>, ProblemHttpResult>> ListAniversariantesAsync(
         DateOnly from,
         DateOnly to,
         ISender sender,
         CancellationToken cancellationToken)
     {
-        SearchAniversariantesResponse response = await sender
-            .SendAsync<SearchAniversariantesQuery, SearchAniversariantesResponse>(
-                new SearchAniversariantesQuery(from, to),
+        Result<ListAniversariantesResponse> result = await sender
+            .SendAsync<ListAniversariantesQuery, Result<ListAniversariantesResponse>>(
+                new ListAniversariantesQuery(from, to),
                 cancellationToken);
 
-        return TypedResults.Ok(response);
+        return result.ToOk();
+    }
+
+    private static async Task<Results<Ok<FichaPessoa>, ProblemHttpResult>> GetFichaPessoaAsync(
+        Guid id,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        Result<FichaPessoa> result = await sender
+            .SendAsync<GetFichaPessoaQuery, Result<FichaPessoa>>(
+                new GetFichaPessoaQuery(id),
+                cancellationToken);
+
+        return result.ToOk();
     }
 }

@@ -7,7 +7,7 @@ namespace CathedrAll.Kernel.Infrastructure;
 
 public abstract class TransactionBehavior<TRequest, TResponse>(DbContext context)
     : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : ICommand<TResponse>
+    where TRequest : IRequest<TResponse>, ICommandBase
 {
     private readonly DbContext _context = context;
 

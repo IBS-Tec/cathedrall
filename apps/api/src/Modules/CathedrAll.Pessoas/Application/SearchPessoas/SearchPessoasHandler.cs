@@ -1,4 +1,5 @@
 using CathedrAll.Kernel.Application;
+using CathedrAll.Kernel.Domain;
 using CathedrAll.Pessoas.Domain;
 using CathedrAll.Pessoas.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -6,11 +7,11 @@ using Microsoft.EntityFrameworkCore;
 namespace CathedrAll.Pessoas.Application;
 
 internal sealed class SearchPessoasHandler(PessoasDbContext context)
-    : IRequestHandler<SearchPessoasQuery, SearchPessoasResponse>
+    : IRequestHandler<SearchPessoasQuery, Result<SearchPessoasResponse>>
 {
     private const int MaximumResults = 10;
 
-    public async Task<SearchPessoasResponse> HandleAsync(
+    public async Task<Result<SearchPessoasResponse>> HandleAsync(
         SearchPessoasQuery request,
         CancellationToken cancellationToken)
     {

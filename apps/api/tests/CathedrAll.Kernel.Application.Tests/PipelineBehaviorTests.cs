@@ -1,3 +1,4 @@
+using CathedrAll.Kernel.Domain;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CathedrAll.Kernel.Application.Tests;
@@ -132,14 +133,14 @@ public sealed class PipelineBehaviorTests
         using ServiceProvider provider = Scenario.Build(services =>
         {
             services.AddSingleton(trace);
-            services.AddSingleton<IRequestHandler<FakeCommand, string>>(new FakeCommandHandler(trace));
+            services.AddSingleton<IRequestHandler<FakeCommand, Result<string>>>(new FakeCommandHandler(trace));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(CommandOnlyBehavior<,>));
         });
 
         using IServiceScope scope = provider.CreateScope();
 
         await Scenario.SenderFrom(scope)
-            .SendAsync<FakeCommand, string>(new FakeCommand("qualquer"), CancellationToken.None);
+            .SendAsync<FakeCommand, Result<string>>(new FakeCommand("qualquer"), CancellationToken.None);
 
         string[] expected = ["command before", "handler", "command after"];
 

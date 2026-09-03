@@ -4,6 +4,6 @@ namespace CathedrAll.Kernel.Infrastructure.Tests;
 
 internal sealed class FakeTransactionBehavior<TRequest, TResponse>(FakeDbContext context)
     : TransactionBehavior<TRequest, TResponse>(context)
-    where TRequest : ICommand<TResponse>
+    where TRequest : IRequest<TResponse>, ICommandBase
 {
 }

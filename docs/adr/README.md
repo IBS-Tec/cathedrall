@@ -25,8 +25,10 @@ de biblioteca de máscara de CPF.
 | [0011](0011-shadcn-tailwind-nos-dois-frontends.md) | shadcn/ui e Tailwind nos dois frontends | Aceito |
 | [0012](0012-monolito-modular-estrito-com-mediator-proprio.md) | Monólito modular estrito, DDD e mediator próprio | Aceito |
 | [0013](0013-ingles-como-idioma-de-codigo-portugues-no-dominio.md) | Inglês como idioma de código, português no domínio | Aceito · pasta contêiner revista pelo [0016](0016-modules-como-nome-da-pasta-conteiner.md) |
-| [0014](0014-problem-details-como-formato-unico-de-erro.md) | ProblemDetails como formato único de erro da API | Aceito |
+| [0014](0014-problem-details-como-formato-unico-de-erro.md) | ProblemDetails como formato único de erro da API | Aceito · casa do mapeador decidida pelo [0019](0019-kernel-web-como-casa-do-mapeador-de-erro.md) |
 | [0015](0015-um-dbcontext-e-migrations-por-modulo.md) | Um `DbContext` e um conjunto de migrations por módulo | Aceito |
 | [0016](0016-modules-como-nome-da-pasta-conteiner.md) | `Modules/` como nome da pasta contêiner dos módulos | Aceito |
 | [0017](0017-ids-fortemente-tipados.md) | Ids fortemente tipados como padrão de todos os módulos | Aceito · exceção do `IAuditable` removida pelo [0018](0018-auditoria-fora-da-entidade.md) |
 | [0018](0018-auditoria-fora-da-entidade.md) | Auditoria fora da entidade, em shadow properties | Aceito |
+| [0019](0019-kernel-web-como-casa-do-mapeador-de-erro.md) | `Kernel.Web` como casa do mapeador de erro | Aceito |
+| [0020](0020-result-obrigatorio-em-query-e-comando.md) | `Result` obrigatório em toda query e todo comando | Aceito |

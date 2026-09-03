@@ -14,6 +14,7 @@ public sealed class MapeamentoTests
 
         Assert.Equal(
         [
+            "anonimizada boolean NOT NULL",
             "celular character varying(20)",
             "convidado_por_id uuid",
             "data_batismo date",

@@ -1,3 +1,5 @@
+using CathedrAll.Kernel.Domain;
+
 namespace CathedrAll.Kernel.Application;
 
 #pragma warning disable S2326
@@ -6,10 +8,18 @@ public interface IRequest<TResponse>
 {
 }
 
-public interface ICommand<TResponse> : IRequest<TResponse>
+public interface ICommandBase
 {
 }
 
-public interface IQuery<TResponse> : IRequest<TResponse>
+public interface ICommand : ICommandBase, IRequest<Result>
+{
+}
+
+public interface ICommand<TValue> : ICommandBase, IRequest<Result<TValue>>
+{
+}
+
+public interface IQuery<TValue> : IRequest<Result<TValue>>
 {
 }

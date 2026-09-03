@@ -4,6 +4,10 @@ namespace CathedrAll.Pessoas.Domain;
 
 internal static class PessoaErrors
 {
+    public static readonly Error NotFound = Error.NotFound(
+        "Pessoa.NotFound",
+        "Pessoa não encontrada.");
+
     public static readonly Error DataFutura = Error.Validation(
         "Pessoa.DataFutura",
         "A data não pode estar no futuro.");

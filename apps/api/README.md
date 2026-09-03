@@ -139,7 +139,8 @@ Todo erro da API sai em `application/problem+json` (RFC 9457). O porquê de cada
 }
 ```
 
-O status vem do `ErrorType`: `Validation` 400, `NotFound` 404, `Conflict` 409, `Failure` 500.
+O status vem do `ErrorType`: `Validation` 400, `Forbidden` 403, `NotFound` 404, `Conflict` 409,
+`Failure` 500.
 
 **Duas regras para quem escreve a SPA.** As duas quebram em silêncio se forem ignoradas —
 nada no compilador as protege:
@@ -149,7 +150,9 @@ nada no compilador as protege:
 2. **Nunca renderize `title`.** Ele é genérico por status e fica em inglês de propósito. O
    texto para o usuário é o `detail`.
 
-Quatro peças no `Program.cs` produzem esse formato, e as quatro são necessárias:
+Quatro peças produzem esse formato, e as quatro são necessárias. Três estão no `Program.cs`;
+a primeira mora em `Kernel.Web`, porque quem a chama é o endpoint, que fica dentro do módulo
+([ADR-0019](../../docs/adr/0019-kernel-web-como-casa-do-mapeador-de-erro.md)):
 
 | Peça | Cobre |
 | --- | --- |
@@ -279,14 +282,14 @@ linha para de disparar sozinha, sem ninguém remover nada. E um ambiente novo qu
 src/
   Bootstrapper/
     CathedrAll.Api/                       host; sobe a aplicação, registra o
-                                          mediator e o pipeline, mapeia /health,
-                                          converte Error em ProblemDetails e
-                                          trata a exceção não capturada
+                                          mediator e o pipeline, mapeia /health
+                                          e trata a exceção não capturada
   Kernel/
     CathedrAll.Kernel.Domain/             Result, Error, ErrorType, Entity
     CathedrAll.Kernel.Application/        mediator, pipeline, LoggingBehavior,
                                           ICurrentUser
     CathedrAll.Kernel.Infrastructure/     TransactionBehavior
+    CathedrAll.Kernel.Web/                ErrorResults: Error em ProblemDetails
   Modules/
     CathedrAll.Pessoas/                   Pessoa, VinculoIgreja, PessoasDbContext,
                                           migrations, o anel de transação do módulo
@@ -296,6 +299,7 @@ tests/
   CathedrAll.Kernel.Domain.Tests/         testes unitários do kernel de domínio
   CathedrAll.Kernel.Application.Tests/    testes unitários do mediator
   CathedrAll.Kernel.Infrastructure.Tests/ testes do anel de transação, sobre SQLite
+  CathedrAll.Kernel.Web.Tests/            testes do mapeador de Error para problem+json
   CathedrAll.Pessoas.Tests/               mapeamento, materialização e o anel do
                                           módulo, sobre SQLite
 ```
@@ -336,11 +340,11 @@ sem mock e sem porta de rede, é o `Program.cs` de verdade que responde. Para um
 espessura, testar por dentro não valeria a pena: o que pode quebrar é justamente o
 encanamento entre rota, middleware e serviço registrado, e é o que só aparece subindo tudo.
 
-As exceções são o `ErrorResultsTests` e o `GlobalExceptionHandlerTests`, os dois unitários: um
-chama `ToProblem()` e inspeciona o `ProblemHttpResult`, o outro chama `TryHandleAsync` com um
-`DefaultHttpContext`. A tabela `ErrorType` → status é função pura, e o handler precisa de
-estados que uma requisição de verdade não produz sob comando — cliente desistindo, resposta já
-iniciada. Subir a aplicação para isso tornaria a falha mais lenta e menos legível. **O preço
+A exceção é o `GlobalExceptionHandlerTests`, unitário: chama `TryHandleAsync` com um
+`DefaultHttpContext`, porque o handler precisa de estados que uma requisição de verdade não
+produz sob comando — cliente desistindo, resposta já iniciada. O `ErrorResultsTests` era a
+outra exceção e saiu daqui: o mapeador mora em `Kernel.Web`, e o teste foi junto. A tabela
+`ErrorType` → status é função pura e nunca precisou do host. Subir a aplicação para isso tornaria a falha mais lenta e menos legível. **O preço
 está declarado** em [O que os testes não cobrem](#o-que-os-testes-não-cobrem).
 
 Os projetos se chamam `.Tests` de propósito: o `Directory.Build.props` reconhece o sufixo e

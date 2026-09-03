@@ -1,3 +1,4 @@
+using CathedrAll.Kernel.Application;
 using CathedrAll.Pessoas;
 using CathedrAll.Pessoas.Domain;
 using CathedrAll.Pessoas.Infrastructure;
@@ -12,6 +13,8 @@ namespace CathedrAll.Api.Tests;
 internal sealed class PessoasApiFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("Filename=:memory:");
+
+    internal Papel Papel { get; init; } = Papel.Pastor;
 
     internal async Task<HttpClient> SemearAsync(params Pessoa[] pessoas)
     {
@@ -32,6 +35,8 @@ internal sealed class PessoasApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _connection.Open();
+
+        builder.UseSetting($"{DevelopmentCurrentUserOptions.SectionName}:Papel", Papel.ToString());
 
         builder.ConfigureServices(services =>
         {

@@ -272,8 +272,8 @@ public sealed class ListPessoasTests
         using IServiceScope scope = provider.CreateScope();
         PessoasDbContext context = scope.ServiceProvider.GetRequiredService<PessoasDbContext>();
 
-        return await new ListPessoasHandler(context).HandleAsync(
+        return (await new ListPessoasHandler(context).HandleAsync(
             new ListPessoasQuery(term, situacao, bairro, page, size),
-            TestContext.Current.CancellationToken);
+            TestContext.Current.CancellationToken)).Value;
     }
 }

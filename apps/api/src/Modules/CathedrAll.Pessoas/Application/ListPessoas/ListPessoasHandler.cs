@@ -1,4 +1,5 @@
 using CathedrAll.Kernel.Application;
+using CathedrAll.Kernel.Domain;
 using CathedrAll.Pessoas.Domain;
 using CathedrAll.Pessoas.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -6,12 +7,12 @@ using Microsoft.EntityFrameworkCore;
 namespace CathedrAll.Pessoas.Application;
 
 internal sealed class ListPessoasHandler(PessoasDbContext context)
-    : IRequestHandler<ListPessoasQuery, ListPessoasResponse>
+    : IRequestHandler<ListPessoasQuery, Result<ListPessoasResponse>>
 {
     private const int DefaultSize = 25;
     private const int MaximumSize = 50;
 
-    public async Task<ListPessoasResponse> HandleAsync(
+    public async Task<Result<ListPessoasResponse>> HandleAsync(
         ListPessoasQuery request,
         CancellationToken cancellationToken)
     {
