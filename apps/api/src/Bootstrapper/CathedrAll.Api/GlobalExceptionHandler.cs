@@ -1,4 +1,5 @@
 using CathedrAll.Kernel.Domain;
+using CathedrAll.Kernel.Web;
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace CathedrAll.Api;

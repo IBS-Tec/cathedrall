@@ -2,7 +2,7 @@ namespace CathedrAll.Kernel.Application.Tests;
 
 internal sealed class CommandOnlyBehavior<TRequest, TResponse>(List<string> trace)
     : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : ICommand<TResponse>
+    where TRequest : IRequest<TResponse>, ICommandBase
 {
     public async Task<TResponse> HandleAsync(
         TRequest request,

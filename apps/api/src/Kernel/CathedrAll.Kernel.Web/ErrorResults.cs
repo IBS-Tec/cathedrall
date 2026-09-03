@@ -1,10 +1,12 @@
 using CathedrAll.Kernel.Domain;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 
-namespace CathedrAll.Api;
+namespace CathedrAll.Kernel.Web;
 
-internal static class ErrorResults
+public static class ErrorResults
 {
-    internal static IResult ToProblem(this Error error)
+    public static ProblemHttpResult ToProblem(this Error error)
     {
         if (error == Error.None)
         {
@@ -16,6 +18,7 @@ internal static class ErrorResults
             ErrorType.Validation => StatusCodes.Status400BadRequest,
             ErrorType.NotFound => StatusCodes.Status404NotFound,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
+            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
             ErrorType.Failure => StatusCodes.Status500InternalServerError,
             _ => throw new ArgumentOutOfRangeException(
                 nameof(error),
@@ -23,7 +26,7 @@ internal static class ErrorResults
                 $"{nameof(ErrorType)} sem status HTTP correspondente."),
         };
 
-        return Results.Problem(
+        return TypedResults.Problem(
             detail: error.Description,
             statusCode: status,
             extensions: new Dictionary<string, object?> { ["code"] = error.Code });

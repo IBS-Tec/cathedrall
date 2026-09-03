@@ -1,6 +1,14 @@
 # Spec-0001 — Pessoas
 
-**Status:** Aprovada · **Data:** 2026-08-22 · **Responsável:** Miquéias Filho
+**Status:** Aprovada · **Data:** 2026-08-22 · **Revista em:** 2026-09-03 ·
+**Responsável:** Miquéias Filho
+
+**Revisões**
+
+- **2026-09-03** — Seção 4 ganha `Anonimizada`: a RN-16 e a seção 6 já exigiam a marca do
+  registro anonimizado, e a seção 4 não dizia onde ela mora. Seção 7 passa a dizer que
+  `Motivo` restrito viaja como `null`, e o que essa escolha não resolve. Seção 11 ganha a
+  fatia de `GET /api/pessoas/{id}`, que faltava. (#40)
 
 Deriva de: [`docs/dominio.md`](../dominio.md#cadastro) · Decisões relacionadas:
 [ADR-0008](../adr/0008-pessoa-como-raiz-unica.md),
@@ -68,6 +76,7 @@ quando a igreja passa a ter uso para o dado.
 | `NomeNormalizado` | `string(120)` | — | Derivado de `Nome`: sem acento, em maiúsculas. Existe só para a busca; nenhuma tela o lê |
 | `ConvidadoPorId` | `Guid?` | cadastro | Referência a outra `Pessoa`. Sem navegação |
 | `FundidaEmId` | `Guid?` | — | Preenchido pela fusão. Não nulo = este registro foi absorvido |
+| `Anonimizada` | `bool` | — | Marcado por `Anonimizar()`. Verdadeiro = os dados pessoais foram substituídos (RN-16) |
 | `Celular` | `string(20)?` | apresentação | E.164. **Não é único** — 10 números são compartilhados na ficha real |
 | `Email` | `string(200)?` | apresentação | Formato válido; gravado em minúsculas |
 | `DataNascimento` | `date?` | apresentação | Não futura |
@@ -578,6 +587,20 @@ ano inteiro.
 **`Motivo` é restrição de campo, não de rota** — o único caso do módulo. A ficha responde sem
 ele para quem não pode lê-lo; um `if` na projeção, não um endpoint separado.
 
+**Na rede, "sem ele" é `motivo: null`, e não o campo ausente.** É o que o exemplo da seção 6
+já mostra, é o que todo outro campo nulo da ficha faz — `celular`, `endereco`, `fundidaEm` —,
+e omitir só este seria a única ausência-por-omissão de uma resposta que sempre manda `null`
+explícito.
+
+**O que nem uma forma nem a outra resolve:** o cliente não distingue "não há motivo" de "há
+um motivo que você não pode ver". Omitir o campo não recuperaria essa informação — a ausência
+significaria as duas coisas do mesmo jeito, porque o vínculo `Visitante → Membro` também não
+tem motivo. Deduzir pela `situacao` quase funciona, já que a RN-7 e a RN-8 exigem `Motivo` em
+`Afastado` e `Transferido` — mas não é firme: a conciliação da planilha grava o dado
+desconhecido como nulo, e vínculo histórico importado sem motivo cai no mesmo buraco. **No dia
+em que a tela precisar dizer "há um motivo que você não pode ver", isso é um campo novo e
+explícito — um `motivoRestrito` ao lado —, nunca um truque de serialização.**
+
 **Líder de departamento não aparece nesta matriz, de propósito.** O escopo dele é o próprio
 departamento, e `Pessoas` não sabe o que é um departamento — a fronteira do ADR-0012 impede.
 O líder alcança quem precisa através do módulo `Departamentos`, que compõe o que quiser
@@ -775,6 +798,9 @@ Só é bloqueante a pergunta que muda o modelo.
 - [ ] `GET /api/pessoas?q=&situacao=&bairro=&page=&size=` — a lista da secretaria (seção 6).
       Outra projeção e outro envelope que a busca, e por isso outra rota. Traz junto a
       segunda coluna de `Bairro` (RN-19), sem a qual o filtro por bairro não existe
+- [ ] `GET /api/pessoas/{id}` — a ficha com o histórico de vínculos em ordem (seção 6). Traz
+      junto o único caso de restrição de campo do módulo, o `Motivo` da seção 7, e a coluna
+      `Anonimizada`, sem a qual a ficha não relata o estado que a RN-16 produz
 - [ ] `POST /api/pessoas` e `PATCH /api/pessoas/{id}` (seção 6)
 - [ ] As quatro rotas de transição (seção 6)
 - [ ] `GET /api/pessoas/aniversariantes`: RN-25

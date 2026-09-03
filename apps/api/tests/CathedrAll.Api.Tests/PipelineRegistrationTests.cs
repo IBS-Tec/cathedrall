@@ -14,7 +14,8 @@ public sealed class PipelineRegistrationTests(WebApplicationFactory<Program> fac
     [Fact]
     public void O_anel_de_transacao_deve_ser_o_mais_interno_do_pipeline()
     {
-        IPipelineBehavior<PipelineProbeCommand, Result>[] aneis = Aneis<PipelineProbeCommand>();
+        IPipelineBehavior<PipelineProbeCommand, Result>[] aneis =
+            Aneis<PipelineProbeCommand, Result>();
 
         Assert.Equal(2, aneis.Length);
         Assert.IsAssignableFrom<TransactionBehavior<PipelineProbeCommand, Result>>(aneis[^1]);
@@ -23,13 +24,14 @@ public sealed class PipelineRegistrationTests(WebApplicationFactory<Program> fac
     [Fact]
     public void Consulta_nao_deve_receber_o_anel_de_transacao()
     {
-        IPipelineBehavior<PipelineProbeQuery, Result>[] aneis = Aneis<PipelineProbeQuery>();
+        IPipelineBehavior<PipelineProbeQuery, Result<int>>[] aneis =
+            Aneis<PipelineProbeQuery, Result<int>>();
 
         Assert.Single(aneis);
     }
 
-    private IPipelineBehavior<TRequest, Result>[] Aneis<TRequest>()
-        where TRequest : IRequest<Result>
+    private IPipelineBehavior<TRequest, TResponse>[] Aneis<TRequest, TResponse>()
+        where TRequest : IRequest<TResponse>
     {
         using WebApplicationFactory<Program> configured = factory.WithWebHostBuilder(
             builder => builder.UseSetting(
@@ -38,6 +40,6 @@ public sealed class PipelineRegistrationTests(WebApplicationFactory<Program> fac
 
         using IServiceScope scope = configured.Services.CreateScope();
 
-        return [.. scope.ServiceProvider.GetServices<IPipelineBehavior<TRequest, Result>>()];
+        return [.. scope.ServiceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>()];
     }
 }

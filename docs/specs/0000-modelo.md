@@ -14,6 +14,16 @@ rascunho.
 
 **Status:** Rascunho · **Data:** AAAA-MM-DD · **Responsável:** \<quem escreveu\>
 
+<!--
+Depois de aprovada, toda correção acrescenta `**Revista em:** AAAA-MM-DD` ao cabeçalho e
+uma linha ao bloco abaixo. Enquanto a spec é rascunho, apague os dois — rascunho se
+reescreve à vontade.
+
+**Revisões**
+
+- **AAAA-MM-DD** — o que mudou e por quê (#issue).
+-->
+
 Deriva de: [`docs/dominio.md#<seção>`](../dominio.md) · Decisões relacionadas:
 [ADR-000X](../adr/000X-....md)
 

@@ -2,7 +2,7 @@ using CathedrAll.Kernel.Application;
 
 namespace CathedrAll.Pessoas.Application;
 
-internal sealed record SearchAniversariantesQuery(
+internal sealed record ListAniversariantesQuery(
     DateOnly From,
     DateOnly To)
-    : IQuery<SearchAniversariantesResponse>;
+    : IQuery<ListAniversariantesResponse>;

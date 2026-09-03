@@ -3,23 +3,26 @@
 O kernel compartilhado do [ADR-0012](../../../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md).
 Guarda os blocos de construção que os módulos usam e **não conhece módulo nenhum**.
 
-> **Estado: o `Result`, os blocos de DDD, o mediator e dois behaviors.**
+> **Estado: o `Result`, os blocos de DDD, o mediator, dois behaviors e o mapeador de erro.**
 > `CathedrAll.Kernel.Domain` tem `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`
 > e `DomainEvent`. `CathedrAll.Kernel.Application` tem o mediator — `ISender`, `IRequest`,
 > `IRequestHandler`, `IPipelineBehavior` —, o `LoggingBehavior`, o `ICurrentUser` e o
 > registro de DI. `CathedrAll.Kernel.Infrastructure` tem o `TransactionBehavior`.
+> `CathedrAll.Kernel.Web` tem o `ErrorResults.ToProblem()`, que converte um `Error` nosso em
+> `problem+json` ([ADR-0019](../../../../docs/adr/0019-kernel-web-como-casa-do-mapeador-de-erro.md)).
 > **Os behaviors escritos são o de log e o de transação:** não existe validação, nem
 > autorização, nem interceptor de auditoria. O anel de transação está **registrado**, fechado
 > sobre o `PessoasDbContext` — `Pessoas` é o único módulo com `DbContext`. **E `ICurrentUser` não é autenticação** — é a porta que
 > ela vai preencher. Este README descreve só o que já está escrito.
 
-## Os três projetos
+## Os quatro projetos
 
 | Projeto | Guarda | Referencia |
 | --- | --- | --- |
 | `CathedrAll.Kernel.Domain` | `Result`, `Error`, `ErrorType`, `Entity`, `AggregateRoot`, `DomainEvent` | nada |
 | `CathedrAll.Kernel.Application` | o mediator, o contrato dos behaviors, o `LoggingBehavior` e o `ICurrentUser` | `Kernel.Domain` |
 | `CathedrAll.Kernel.Infrastructure` | o `TransactionBehavior` | `Kernel.Application` |
+| `CathedrAll.Kernel.Web` | o `ErrorResults.ToProblem()` | `Kernel.Domain` |
 
 O ADR-0012 esboçou um `CathedrAll.Kernel` único. São vários porque a seta importa: um módulo
 que não persiste nada referencia apenas `Kernel.Domain`, e aí **a entidade não alcança o
@@ -58,6 +61,23 @@ só quem precisa de persistência referencia. É o mesmo movimento que separou `
 
 A escolha do **provider** continua sendo do host: `Relational` sabe o que é uma transação e
 uma tabela, e não sabe o que é PostgreSQL ([ADR-0015](../../../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md)).
+
+`Kernel.Web` **nasceu do mesmo corte, cinco ADRs depois**. O `ErrorResults.ToProblem()`
+morava no host, e o [ADR-0012](../../../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md)
+põe `Endpoints/` dentro do módulo — que não referencia o host. Ou o mapeador subia, ou cada
+módulo inventava o próprio `problem+json`. Ele não podia subir para `Kernel.Application`, e o
+motivo é a regra acima: `Microsoft.AspNetCore.App` não é `*.Abstractions`, é o framework
+inteiro. Então virou um quarto projeto, referenciado só por quem tem ponta de entrada — o host
+e todo módulo com `Endpoints/`
+([ADR-0019](../../../../docs/adr/0019-kernel-web-como-casa-do-mapeador-de-erro.md)).
+
+**A ressalva do `Kernel.Infrastructure` vale igual aqui, e agora são duas.** Um módulo que
+referencia `Kernel.Web` compila com `IResult` dentro de `Domain/`. É regra de revisão, não
+trava de compilador.
+
+Sobe para `Kernel.Web` só a função pura de `Error` para resposta. `AddProblemDetails`,
+`UseStatusCodePages` e o `GlobalExceptionHandler` continuam no host: nenhum é chamado por um
+endpoint — são montagem da aplicação.
 
 ## A regra de corte: `Result` ou exceção
 
@@ -180,6 +200,7 @@ Repare na mistura de idiomas, que é deliberada e segue o
 | `Validation` | 400 | A entrada está malformada |
 | `NotFound` | 404 | O identificador não existe |
 | `Conflict` | 409 | Entrada válida, estado do agregado não permite |
+| `Forbidden` | 403 | O papel do usuário atual não pode fazer isto |
 | `Failure` | 500 | Rede de segurança |
 
 A distinção que mais aparece é `Validation` vs `Conflict`. O corte: **`Validation` é a
@@ -198,9 +219,14 @@ exceção, quase nada deveria chegar nele deliberadamente. **No dia em que você
 `ErrorType.Failure` de propósito, pare e pergunte se falta um membro** — provavelmente
 falta, e você vai ter o caso concreto na mão para nomeá-lo bem.
 
-Não existem `Unauthorized` nem `Forbidden`: autenticação e autorização são resolvidas antes
-do handler rodar. Se o behavior de RBAC com escopo precisar devolver `Result`, isso se
-decide escrevendo o behavior. Enum é fácil de acrescentar e caro de limpar.
+**`Forbidden` existe, e `Unauthorized` não.** A diferença é quem responde. O 401 é do
+middleware de autenticação, que nega antes de o `Sender` rodar e nunca chega a produzir um
+`Result`. O 403 é do behavior de autorização, que roda **dentro** do pipeline e precisa
+interromper devolvendo `Result` — é o motivo de o [ADR-0020](../../../../docs/adr/0020-result-obrigatorio-em-query-e-comando.md)
+obrigar `Result` em toda query e todo comando. Este README dizia o contrário até aquele ADR,
+apoiado em "autorização é resolvida antes do handler rodar"; deixou de valer no momento em que
+a matriz de permissões da spec-0001 virou behavior. **`Forbidden` é o único membro que hoje
+não tem quem o produza** — entrou antes do uso de propósito, e o custo está declarado no ADR.
 
 ## Onde os `try/catch` desaparecem
 
@@ -215,7 +241,7 @@ Com os dois, um handler de módulo não tem motivo para ter `try/catch`. **Se vo
 um, é sinal de que ou aquele erro deveria ser `Result`, ou você está engolindo algo que
 deveria subir.**
 
-**O primeiro existe: `ErrorResults.ToProblem()`, no host.** O formato que ele produz é o do
+**O primeiro existe: `ErrorResults.ToProblem()`, em `Kernel.Web`.** O formato que ele produz é o do
 [ADR-0014](../../../../docs/adr/0014-problem-details-como-formato-unico-de-erro.md) — RFC
 9457, com o `Code` num membro de extensão `code` e a `Description` no `detail`. Repare que
 ele recebe o **`Error`**, não o `Result`: o lado do sucesso — 200 com corpo, 201 com
@@ -475,7 +501,7 @@ mas o número inteiro do projeto fica visível de propósito: 156.
 
 | Peça | O que é |
 | --- | --- |
-| `IRequest<TResponse>` | marcador. `ICommand<T>` e `IQuery<T>` herdam dele |
+| `IRequest<TResponse>` | marcador livre. `ICommand`, `ICommand<T>` e `IQuery<T>` herdam dele e obrigam `Result` |
 | `IRequestHandler<TRequest, TResponse>` | quem faz o trabalho. Um por requisição |
 | `IPipelineBehavior<TRequest, TResponse>` | o que envolve o handler. Zero ou muitos |
 | `RequestHandlerDelegate<TResponse>` | o `next` que o behavior chama |
@@ -485,7 +511,7 @@ mas o número inteiro do projeto fica visível de propósito: 156.
 Ponta a ponta. O comando e o handler, dentro do módulo:
 
 ```csharp
-public sealed record CadastrarPessoa(string Nome) : ICommand<Result<Guid>>;
+public sealed record CadastrarPessoa(string Nome) : ICommand<Guid>;
 
 internal sealed class CadastrarPessoaHandler(IPessoaRepository repositorio)
     : IRequestHandler<CadastrarPessoa, Result<Guid>>
@@ -602,7 +628,7 @@ poder restringir a si mesmo:
 ```csharp
 internal sealed class TransactionBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : ICommand<TResponse>
+    where TRequest : IRequest<TResponse>, ICommandBase
 ```
 
 Registrado como genérico aberto, o container **pula esse behavior em silêncio** quando a
@@ -610,8 +636,16 @@ requisição é uma query. Sem `if (request is ICommand)` dentro do behavior, se
 duplicado. Isso funciona a partir do .NET 7; antes, o container lançava em vez de pular.
 
 É o mesmo teste que matou `IEntity<TId>` mais acima: interface do kernel precisa de
-consumidor nomeado. O destas duas é o `TransactionBehavior`, que agora existe — o `ICommand`
-no `where` dele é o que mantém query fora de transação.
+consumidor nomeado. O destas duas é o `TransactionBehavior`, que agora existe — o
+`ICommandBase` no `where` dele é o que mantém query fora de transação.
+
+**O `ICommandBase` é a única peça do kernel que existe por causa da DI, e não do domínio.**
+Desde o [ADR-0020](../../../../docs/adr/0020-result-obrigatorio-em-query-e-comando.md) o
+`ICommand<TValue>` nomeia o **valor**, não a resposta — a resposta é sempre `Result<TValue>`.
+Com isso `where TRequest : ICommand<TResponse>` para de fechar, e não dá para consertar
+tornando o behavior genérico sobre o valor, porque o container fecha genérico aberto por
+posição. Então o anel se prende a um marcador sem genérico. Quem escreve comando nunca digita
+esse nome: declara `ICommand` quando não devolve valor e `ICommand<TValue>` quando devolve.
 
 ### `ISender` é `Scoped`, e não é detalhe
 
@@ -793,7 +827,7 @@ subclasse fechada, que é só um repasse de construtor:
 ```csharp
 internal sealed class PessoasTransactionBehavior<TRequest, TResponse>(PessoasDbContext context)
     : TransactionBehavior<TRequest, TResponse>(context)
-    where TRequest : ICommand<TResponse>
+    where TRequest : IRequest<TResponse>, ICommandBase
 {
 }
 ```
@@ -844,7 +878,7 @@ contagem quebra de propósito: quem os escrever tem que vir aqui dizer onde eles
 
 Um `DbContext` por módulo ([ADR-0015](../../../../docs/adr/0015-um-dbcontext-e-migrations-por-modulo.md))
 significa **um anel de transação por módulo**. Todos são registrados no mesmo
-`IPipelineBehavior<,>` aberto, e a restrição `where TRequest : ICommand<TResponse>` é
+`IPipelineBehavior<,>` aberto, e a restrição `where TRequest : ICommandBase` é
 satisfeita por *qualquer* comando — então **todos entram na cadeia de todo comando**, inclusive
 os de outro módulo. Isso está medido, não suposto: registrar dois anéis fechados sobre o mesmo
 contexto faz o comando morrer com `InvalidOperationException: The connection is already in a

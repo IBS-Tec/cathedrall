@@ -77,13 +77,13 @@ internal static class Scenario
                 CancellationToken.None);
     }
 
-    public static async Task<int> EnviarConsultaAsync(ServiceProvider provider, string nome)
+    public static async Task<Result<int>> EnviarConsultaAsync(ServiceProvider provider, string nome)
     {
         using IServiceScope scope = provider.CreateScope();
 
         return await scope.ServiceProvider
             .GetRequiredService<ISender>()
-            .SendAsync<FakeReadQuery, int>(new FakeReadQuery(nome), CancellationToken.None);
+            .SendAsync<FakeReadQuery, Result<int>>(new FakeReadQuery(nome), CancellationToken.None);
     }
 
     public static async Task<int> ContarPessoasAsync(SqliteConnection connection)

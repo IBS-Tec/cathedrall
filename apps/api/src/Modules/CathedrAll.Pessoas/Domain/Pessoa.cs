@@ -23,6 +23,8 @@ internal sealed class Pessoa : AggregateRoot<PessoaId>
 
     public PessoaId? FundidaEmId { get; init; }
 
+    public bool Anonimizada { get; init; }
+
     public Celular? Celular { get; init; }
 
     public Email? Email { get; init; }

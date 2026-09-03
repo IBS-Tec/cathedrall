@@ -46,6 +46,14 @@ departamento antes.
 **O status volta.** Pergunta nova numa spec Aprovada faz ela voltar a Rascunho até ser
 respondida. O efeito é o que interessa: para de gerar issue enquanto a dúvida existe.
 
+**Correção de spec aprovada se registra.** Corrigir no mesmo PR que muda o código é o
+esperado — mas a correção fica anotada: a data entra no cabeçalho como **Revista em** e a
+mudança vira uma linha no bloco **Revisões**, com o que mudou, por quê e a issue. A **Data**
+original não se mexe: ela é quando a spec foi aprovada, não quando foi tocada pela última
+vez. Sem esse registro, quem leu a spec mês passado não tem como saber que a seção que ele
+decorou virou outra coisa — e é justamente em spec aprovada que as pessoas confiam sem
+reler.
+
 **A numeração das regras congela na aprovação.** Antes disso, renumerar é livre. Depois, as
 issues e os testes citam "RN-7", e o número virou contrato: **acrescente no fim, nunca
 renumere.** Regra que sai vira uma linha de lápide — `RN-9 — removida em 2027-03-14, ver

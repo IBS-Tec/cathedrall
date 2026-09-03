@@ -1,4 +1,5 @@
 using CathedrAll.Kernel.Application;
+using CathedrAll.Kernel.Domain;
 using CathedrAll.Pessoas.Application;
 using CathedrAll.Pessoas.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -25,16 +26,20 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddPessoasHandlers(this IServiceCollection services)
     {
         services.TryAddScoped<
-            IRequestHandler<SearchPessoasQuery, SearchPessoasResponse>,
+            IRequestHandler<SearchPessoasQuery, Result<SearchPessoasResponse>>,
             SearchPessoasHandler>();
 
         services.TryAddScoped<
-            IRequestHandler<ListPessoasQuery, ListPessoasResponse>,
+            IRequestHandler<ListPessoasQuery, Result<ListPessoasResponse>>,
             ListPessoasHandler>();
 
         services.TryAddScoped<
-            IRequestHandler<SearchAniversariantesQuery, SearchAniversariantesResponse>,
-            SearchAniversariantesHandler>();
+            IRequestHandler<ListAniversariantesQuery, Result<ListAniversariantesResponse>>,
+            ListAniversariantesHandler>();
+
+        services.TryAddScoped<
+            IRequestHandler<GetFichaPessoaQuery, Result<FichaPessoa>>,
+            GetFichaPessoaHandler>();
 
         return services;
     }

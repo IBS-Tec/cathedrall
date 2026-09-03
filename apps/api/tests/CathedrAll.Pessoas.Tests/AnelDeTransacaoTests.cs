@@ -40,7 +40,7 @@ public sealed class AnelDeTransacaoTests
     {
         await using SqliteConnection connection = await Scenario.AbrirAsync();
         await using ServiceProvider provider = Scenario.ProvedorComAnel(connection, services =>
-            services.AddScoped<IRequestHandler<FakeReadQuery, int>, WritingQueryHandler>());
+            services.AddScoped<IRequestHandler<FakeReadQuery, Result<int>>, WritingQueryHandler>());
 
         await Scenario.EnviarConsultaAsync(provider, "Maria");
 

@@ -2,7 +2,7 @@ using CathedrAll.Kernel.Domain;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 
-namespace CathedrAll.Api.Tests;
+namespace CathedrAll.Kernel.Web.Tests;
 
 public sealed class ErrorResultsTests
 {
@@ -34,6 +34,15 @@ public sealed class ErrorResultsTests
             Error.Conflict("Escala.PessoaUnavailable", "A pessoa está indisponível nesta data."));
 
         Assert.Equal(StatusCodes.Status409Conflict, problem.StatusCode);
+    }
+
+    [Fact]
+    public void Deve_mapear_Forbidden_para_403()
+    {
+        ProblemHttpResult problem = Mapear(
+            Error.Forbidden("Pessoa.FichaProibida", "Este papel não pode abrir a ficha."));
+
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.StatusCode);
     }
 
     [Fact]

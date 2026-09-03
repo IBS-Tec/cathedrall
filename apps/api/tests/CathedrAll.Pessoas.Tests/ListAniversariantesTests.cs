@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CathedrAll.Pessoas.Tests;
 
-public sealed class SearchAniversariantesTests
+public sealed class ListAniversariantesTests
 {
     private static readonly DateOnly Chegada = new(2024, 3, 12);
 
@@ -23,7 +23,7 @@ public sealed class SearchAniversariantesTests
             Nova("Carla Dias", nascimento: new DateOnly(1985, 6, 15)),
             Nova("Davi Melo"));
 
-        SearchAniversariantesResponse resposta = await BuscarAsync(
+        ListAniversariantesResponse resposta = await BuscarAsync(
             provider,
             new DateOnly(2026, 12, 28),
             new DateOnly(2027, 1, 3));
@@ -46,7 +46,7 @@ public sealed class SearchAniversariantesTests
                 nascimento: new DateOnly(1990, 8, 25),
                 casamento: new DateOnly(2015, 8, 27)));
 
-        SearchAniversariantesResponse resposta = await BuscarAsync(
+        ListAniversariantesResponse resposta = await BuscarAsync(
             provider,
             new DateOnly(2026, 8, 23),
             new DateOnly(2026, 8, 29));
@@ -77,7 +77,7 @@ public sealed class SearchAniversariantesTests
             sobrevivente,
             Nova("Ana S.", nascimento: new DateOnly(1990, 8, 25), fundidaEm: sobrevivente.Id));
 
-        SearchAniversariantesResponse resposta = await BuscarAsync(
+        ListAniversariantesResponse resposta = await BuscarAsync(
             provider,
             new DateOnly(2026, 8, 23),
             new DateOnly(2026, 8, 29));
@@ -93,7 +93,7 @@ public sealed class SearchAniversariantesTests
 
         await SemearAsync(provider, Nova("Ana Souza", nascimento: new DateOnly(2000, 2, 29)));
 
-        SearchAniversariantesResponse resposta = await BuscarAsync(
+        ListAniversariantesResponse resposta = await BuscarAsync(
             provider,
             new DateOnly(2027, 2, 26),
             new DateOnly(2027, 3, 4));
@@ -112,7 +112,7 @@ public sealed class SearchAniversariantesTests
             Nova("Ana Souza", nascimento: new DateOnly(1990, 3, 1)),
             Nova("Bento Lima", nascimento: new DateOnly(1990, 6, 15)));
 
-        SearchAniversariantesResponse resposta = await BuscarAsync(
+        ListAniversariantesResponse resposta = await BuscarAsync(
             provider,
             new DateOnly(2027, 2, 26),
             new DateOnly(2028, 2, 26));
@@ -130,7 +130,7 @@ public sealed class SearchAniversariantesTests
 
         await SemearAsync(provider, saiu);
 
-        SearchAniversariantesResponse resposta = await BuscarAsync(
+        ListAniversariantesResponse resposta = await BuscarAsync(
             provider,
             new DateOnly(2026, 8, 23),
             new DateOnly(2026, 8, 29));
@@ -138,7 +138,7 @@ public sealed class SearchAniversariantesTests
         Assert.Empty(resposta.Aniversariantes);
     }
 
-    private static string[] Resumir(SearchAniversariantesResponse resposta) =>
+    private static string[] Resumir(ListAniversariantesResponse resposta) =>
         [.. resposta.Aniversariantes.Select(
             aniversariante => $"{aniversariante.Nome}|{aniversariante.Tipo}|{aniversariante.Data:yyyy-MM-dd}")];
 
@@ -170,7 +170,7 @@ public sealed class SearchAniversariantesTests
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
-    private static async Task<SearchAniversariantesResponse> BuscarAsync(
+    private static async Task<ListAniversariantesResponse> BuscarAsync(
         ServiceProvider provider,
         DateOnly from,
         DateOnly to)
@@ -178,8 +178,8 @@ public sealed class SearchAniversariantesTests
         using IServiceScope scope = provider.CreateScope();
         PessoasDbContext context = scope.ServiceProvider.GetRequiredService<PessoasDbContext>();
 
-        return await new SearchAniversariantesHandler(context).HandleAsync(
-            new SearchAniversariantesQuery(from, to),
-            TestContext.Current.CancellationToken);
+        return (await new ListAniversariantesHandler(context).HandleAsync(
+            new ListAniversariantesQuery(from, to),
+            TestContext.Current.CancellationToken)).Value;
     }
 }

@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="../../Kernel/CathedrAll.Kernel.Domain/CathedrAll.Kernel.Domain.csproj" />
     <ProjectReference Include="../../Kernel/CathedrAll.Kernel.Infrastructure/CathedrAll.Kernel.Infrastructure.csproj" />
+    <ProjectReference Include="../../Kernel/CathedrAll.Kernel.Web/CathedrAll.Kernel.Web.csproj" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

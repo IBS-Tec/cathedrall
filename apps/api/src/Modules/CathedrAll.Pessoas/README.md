@@ -18,10 +18,32 @@ separadas ([ADR-0008](../../../../../docs/adr/0008-pessoa-como-raiz-unica.md)).
 | Pasta | Guarda |
 | --- | --- |
 | `Domain/` | `Pessoa`, `VinculoIgreja`, os objetos de valor, os ids tipados e `TextNormalization` |
-| `Application/` | uma query, um response e um handler por caso de uso |
+| `Application/` | uma pasta por rota, com a query, o handler e os records da resposta dela. Na raiz, só o que mais de uma rota usa |
 | `Infrastructure/` | `PessoasDbContext`, as `IEntityTypeConfiguration` e os `ValueConverter` |
 | `Endpoints/` | `PessoasEndpoints.MapPessoasEndpoints` — **o único ponto público de rota** |
 | `Migrations/` | geradas pelo `dotnet ef`, no schema `pessoas` |
+
+**`Application/` se divide por rota, nunca por tipo técnico.** Nada de `Queries/`, `Handlers/`
+ou `Dtos/` — é a mesma regra do `CLAUDE.md` que proíbe `Services/` e `Repositories/`, e o
+mesmo motivo do [ADR-0012](../../../../../docs/adr/0012-monolito-modular-estrito-com-mediator-proprio.md)
+para o módulo existir: mexer numa rota é abrir uma pasta, não caçar quatro arquivos em quatro
+lugares.
+
+```
+Application/
+  GetFichaPessoa/       a query, o handler, FichaPessoa e os records que só ela usa
+  ListAniversariantes/
+  ListPessoas/
+  SearchPessoas/
+  NomeFilter.cs         a raiz é o compartilhado, e por isso é curta
+  PessoaRef.cs
+```
+
+O nome da pasta é o nome da query sem o sufixo, então `Endpoints/` e `Application/` se leem
+em paralelo. **E a raiz é o alarme:** arquivo solto ali é declaração de que duas rotas
+dependem dele — hoje o `NomeFilter`, que a busca e a lista compartilham, e o `PessoaRef`, que
+a busca e a ficha compartilham. Se a raiz crescer, o que cresceu foi o acoplamento entre
+rotas, não a bagunça.
 
 **Tudo é `internal`, exceto `ServiceCollectionExtensions` e `PessoasEndpoints`.** O host
 compõe o módulo por dois verbos e não alcança nada de dentro

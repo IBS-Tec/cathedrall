@@ -4,6 +4,7 @@
     <Project Path="src/Kernel/CathedrAll.Kernel.Application/CathedrAll.Kernel.Application.csproj" />
     <Project Path="src/Kernel/CathedrAll.Kernel.Domain/CathedrAll.Kernel.Domain.csproj" />
     <Project Path="src/Kernel/CathedrAll.Kernel.Infrastructure/CathedrAll.Kernel.Infrastructure.csproj" />
+    <Project Path="src/Kernel/CathedrAll.Kernel.Web/CathedrAll.Kernel.Web.csproj" />
   </Folder>
   <Folder Name="/src/Modules/">
     <Project Path="src/Modules/CathedrAll.Pessoas/CathedrAll.Pessoas.csproj" />
@@ -14,6 +15,7 @@
     <Project Path="tests/CathedrAll.Pessoas.Tests/CathedrAll.Pessoas.Tests.csproj" />
     <Project Path="tests/CathedrAll.Kernel.Domain.Tests/CathedrAll.Kernel.Domain.Tests.csproj" />
     <Project Path="tests/CathedrAll.Kernel.Infrastructure.Tests/CathedrAll.Kernel.Infrastructure.Tests.csproj" />
+    <Project Path="tests/CathedrAll.Kernel.Web.Tests/CathedrAll.Kernel.Web.Tests.csproj" />
   </Folder>
   <Folder Name="/src/Bootstrapper/">
     <Project Path="src/Bootstrapper/CathedrAll.Api/CathedrAll.Api.csproj" />

@@ -184,7 +184,7 @@ public sealed class SearchPessoasTests
         using IServiceScope scope = provider.CreateScope();
         PessoasDbContext context = scope.ServiceProvider.GetRequiredService<PessoasDbContext>();
 
-        return await new SearchPessoasHandler(context)
-            .HandleAsync(new SearchPessoasQuery(termo), TestContext.Current.CancellationToken);
+        return (await new SearchPessoasHandler(context)
+            .HandleAsync(new SearchPessoasQuery(termo), TestContext.Current.CancellationToken)).Value;
     }
 }
