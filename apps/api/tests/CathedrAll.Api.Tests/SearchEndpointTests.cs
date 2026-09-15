@@ -67,17 +67,19 @@ public sealed class SearchEndpointTests
         Assert.DoesNotContain("Boa Viagem", corpo, StringComparison.Ordinal);
     }
 
-    private static Pessoa Nova(string nome, PessoaId? convidadoPor = null)
-    {
-        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), nome)
-        {
-            ConvidadoPorId = convidadoPor,
-        };
-
-        pessoa.SucederVinculo(Situacao.Visitante, Chegada, null, Chegada);
-
-        return pessoa;
-    }
+    private static Pessoa Nova(string nome, PessoaId? convidadoPor = null) =>
+        Pessoa.Cadastrar(
+            hoje: Chegada,
+            nome: nome,
+            convidadoPorId: convidadoPor,
+            celular: null,
+            email: null,
+            dataNascimento: null,
+            estadoCivil: null,
+            dataCasamento: null,
+            profissao: null,
+            dataBatismo: null,
+            endereco: null).Value;
 
     private static async Task<string> BuscarAsync(HttpClient client, string termo)
     {

@@ -1,3 +1,4 @@
+using CathedrAll.Kernel.Domain;
 using CathedrAll.Pessoas.Application;
 using CathedrAll.Pessoas.Domain;
 using CathedrAll.Pessoas.Infrastructure;
@@ -9,6 +10,8 @@ namespace CathedrAll.Pessoas.Tests;
 public sealed class ListAniversariantesTests
 {
     private static readonly DateOnly Chegada = new(2024, 3, 12);
+    private static readonly DateOnly Apresentacao = new(2024, 9, 15);
+    private static readonly DateOnly Saida = new(2025, 1, 1);
 
     [Fact]
     public async Task Intervalo_que_atravessa_a_virada_do_ano_deve_achar_os_dois_lados()
@@ -58,11 +61,12 @@ public sealed class ListAniversariantesTests
 
     [Fact]
     public async Task Falecido_nao_deve_aparecer() =>
-        await QuemSaiuNaoDeveAparecerAsync(Situacao.Falecido);
+        await QuemSaiuNaoDeveAparecerAsync(pessoa => pessoa.RegistrarFalecimento(Saida, Saida));
 
     [Fact]
     public async Task Transferido_nao_deve_aparecer() =>
-        await QuemSaiuNaoDeveAparecerAsync(Situacao.Transferido);
+        await QuemSaiuNaoDeveAparecerAsync(
+            pessoa => pessoa.RegistrarTransferencia("Igreja Batista de Olinda", Saida, Saida));
 
     [Fact]
     public async Task Registro_absorvido_por_fusao_nao_deve_aparecer()
@@ -75,7 +79,7 @@ public sealed class ListAniversariantesTests
         await SemearAsync(
             provider,
             sobrevivente,
-            Nova("Ana S.", nascimento: new DateOnly(1990, 8, 25), fundidaEm: sobrevivente.Id));
+            Absorvida("Ana S.", nascimento: new DateOnly(1990, 8, 25), sobrevivente));
 
         ListAniversariantesResponse resposta = await BuscarAsync(
             provider,
@@ -120,13 +124,15 @@ public sealed class ListAniversariantesTests
         Assert.Equal(["Ana Souza|Nascimento|2027-03-01"], Resumir(resposta));
     }
 
-    private static async Task QuemSaiuNaoDeveAparecerAsync(Situacao situacao)
+    private static async Task QuemSaiuNaoDeveAparecerAsync(Func<Pessoa, Result> sair)
     {
         await using SqliteConnection connection = await Scenario.AbrirAsync();
         await using ServiceProvider provider = Scenario.Provedor(connection);
 
         Pessoa saiu = Nova("Ana Souza", nascimento: new DateOnly(1990, 8, 25));
-        saiu.SucederVinculo(situacao, new DateOnly(2025, 1, 1), null, new DateOnly(2025, 1, 1));
+        saiu.RegistrarApresentacao(Apresentacao, Apresentacao);
+
+        Assert.True(sair(saiu).IsSuccess);
 
         await SemearAsync(provider, saiu);
 
@@ -145,20 +151,28 @@ public sealed class ListAniversariantesTests
     private static Pessoa Nova(
         string nome,
         DateOnly? nascimento = null,
-        DateOnly? casamento = null,
-        PessoaId? fundidaEm = null)
-    {
-        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), nome)
+        DateOnly? casamento = null) =>
+        Pessoa.Cadastrar(
+            hoje: Chegada,
+            nome: nome,
+            convidadoPorId: null,
+            celular: null,
+            email: null,
+            dataNascimento: nascimento,
+            estadoCivil: null,
+            dataCasamento: casamento,
+            profissao: null,
+            dataBatismo: null,
+            endereco: null).Value;
+
+    // Ainda não existe Fundir (RN-17): a marca entra pelo construtor. Sem vínculo, porque o
+    // que tira o absorvido da lista é a marca, não a situação.
+    private static Pessoa Absorvida(string nome, DateOnly nascimento, Pessoa sobrevivente) =>
+        new(new PessoaId(Guid.CreateVersion7()), nome)
         {
             DataNascimento = nascimento,
-            DataCasamento = casamento,
-            FundidaEmId = fundidaEm,
+            FundidaEmId = sobrevivente.Id,
         };
-
-        pessoa.SucederVinculo(Situacao.Visitante, Chegada, null, Chegada);
-
-        return pessoa;
-    }
 
     private static async Task SemearAsync(ServiceProvider provider, params Pessoa[] pessoas)
     {

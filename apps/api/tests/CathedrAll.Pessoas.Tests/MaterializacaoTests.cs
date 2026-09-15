@@ -70,8 +70,7 @@ public sealed class MaterializacaoTests
         await using SqliteConnection connection = await Scenario.AbrirAsync();
         await using ServiceProvider provider = Scenario.Provedor(connection);
 
-        PessoaId id = new(Guid.CreateVersion7());
-        await Scenario.GravarComVinculoAsync(provider, id);
+        PessoaId id = await Scenario.GravarComVinculoAsync(provider);
 
         using IServiceScope scope = provider.CreateScope();
         PessoasDbContext context = scope.ServiceProvider.GetRequiredService<PessoasDbContext>();

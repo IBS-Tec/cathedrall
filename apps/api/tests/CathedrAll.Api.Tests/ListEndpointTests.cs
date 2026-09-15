@@ -81,7 +81,7 @@ public sealed class ListEndpointTests
         await using PessoasApiFactory factory = new();
 
         Pessoa membro = Nova("João Guedes", bairro: "Grotão");
-        membro.SucederVinculo(Situacao.Membro, Apresentacao, null, Apresentacao);
+        membro.RegistrarApresentacao(Apresentacao, Apresentacao);
 
         HttpClient client = await factory.SemearAsync(
             membro,
@@ -128,16 +128,22 @@ public sealed class ListEndpointTests
 
     private static Pessoa Nova(string nome, string? bairro = null)
     {
-        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), nome)
-        {
-            Endereco = bairro is null
-                ? null
-                : new Endereco(null, null, null, null, bairro, null, null),
-        };
+        Endereco? endereco = bairro is null
+            ? null
+            : new Endereco(null, null, null, null, bairro, null, null);
 
-        pessoa.SucederVinculo(Situacao.Visitante, Chegada, null, Chegada);
-
-        return pessoa;
+        return Pessoa.Cadastrar(
+            hoje: Chegada,
+            nome: nome,
+            convidadoPorId: null,
+            celular: null,
+            email: null,
+            dataNascimento: null,
+            estadoCivil: null,
+            dataCasamento: null,
+            profissao: null,
+            dataBatismo: null,
+            endereco: endereco).Value;
     }
 
     private static async Task<string> ListarAsync(HttpClient client, string query)

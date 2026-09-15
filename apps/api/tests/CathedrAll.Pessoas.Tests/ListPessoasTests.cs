@@ -84,11 +84,11 @@ public sealed class ListPessoasTests
         await using ServiceProvider provider = Scenario.Provedor(connection);
 
         Pessoa membro = Nova("João Guedes");
-        membro.SucederVinculo(Situacao.Membro, Apresentacao, null, Apresentacao);
+        membro.RegistrarApresentacao(Apresentacao, Apresentacao);
 
         Pessoa afastada = Nova("Maria Souza");
-        afastada.SucederVinculo(Situacao.Membro, Apresentacao, null, Apresentacao);
-        afastada.SucederVinculo(Situacao.Afastado, Afastamento, "mudou de cidade", Afastamento);
+        afastada.RegistrarApresentacao(Apresentacao, Apresentacao);
+        afastada.ReconhecerAfastamento("mudou de cidade", Afastamento);
 
         await SemearAsync(provider, membro, afastada);
 
@@ -164,7 +164,7 @@ public sealed class ListPessoasTests
 
         Pessoa sobrevivente = Nova("João Guedes");
 
-        await SemearAsync(provider, sobrevivente, Nova("João Guedes", fundidaEm: sobrevivente.Id));
+        await SemearAsync(provider, sobrevivente, Absorvida("João Guedes", sobrevivente));
 
         ListPessoasResponse resposta = await ListarAsync(provider);
 
@@ -179,10 +179,10 @@ public sealed class ListPessoasTests
         await using ServiceProvider provider = Scenario.Provedor(connection);
 
         Pessoa alvo = Nova("João Guedes", bairro: "Grotão");
-        alvo.SucederVinculo(Situacao.Membro, Apresentacao, null, Apresentacao);
+        alvo.RegistrarApresentacao(Apresentacao, Apresentacao);
 
         Pessoa outroBairro = Nova("João Guedes", bairro: "Casa Amarela");
-        outroBairro.SucederVinculo(Situacao.Membro, Apresentacao, null, Apresentacao);
+        outroBairro.RegistrarApresentacao(Apresentacao, Apresentacao);
 
         await SemearAsync(
             provider,
@@ -226,7 +226,7 @@ public sealed class ListPessoasTests
         await using ServiceProvider provider = Scenario.Provedor(connection);
 
         Pessoa pessoa = Nova("João Guedes");
-        pessoa.SucederVinculo(Situacao.Membro, Apresentacao, null, Apresentacao);
+        pessoa.RegistrarApresentacao(Apresentacao, Apresentacao);
 
         await SemearAsync(provider, pessoa);
 
@@ -236,20 +236,33 @@ public sealed class ListPessoasTests
         Assert.Equal(Apresentacao, item.Desde);
     }
 
-    private static Pessoa Nova(string nome, string? bairro = null, PessoaId? fundidaEm = null)
+    private static Pessoa Nova(string nome, string? bairro = null)
     {
-        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), nome)
-        {
-            FundidaEmId = fundidaEm,
-            Endereco = bairro is null
-                ? null
-                : new Endereco(null, null, null, null, bairro, null, null),
-        };
+        Endereco? endereco = bairro is null
+            ? null
+            : new Endereco(null, null, null, null, bairro, null, null);
 
-        pessoa.SucederVinculo(Situacao.Visitante, Chegada, null, Chegada);
-
-        return pessoa;
+        return Pessoa.Cadastrar(
+            hoje: Chegada,
+            nome: nome,
+            convidadoPorId: null,
+            celular: null,
+            email: null,
+            dataNascimento: null,
+            estadoCivil: null,
+            dataCasamento: null,
+            profissao: null,
+            dataBatismo: null,
+            endereco: endereco).Value;
     }
+
+    // Ainda não existe Fundir (RN-17): a marca entra pelo construtor. Sem vínculo, porque o
+    // que tira o absorvido da lista é a marca, não a situação.
+    private static Pessoa Absorvida(string nome, Pessoa sobrevivente) =>
+        new(new PessoaId(Guid.CreateVersion7()), nome)
+        {
+            FundidaEmId = sobrevivente.Id,
+        };
 
     private static async Task SemearAsync(ServiceProvider provider, params Pessoa[] pessoas)
     {
