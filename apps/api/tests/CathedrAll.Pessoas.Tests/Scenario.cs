@@ -108,18 +108,29 @@ internal static class Scenario
         return pessoa.Id;
     }
 
-    public static async Task GravarComVinculoAsync(ServiceProvider provider, PessoaId id)
+    public static async Task<PessoaId> GravarComVinculoAsync(ServiceProvider provider)
     {
         using IServiceScope scope = provider.CreateScope();
         PessoasDbContext context = scope.ServiceProvider.GetRequiredService<PessoasDbContext>();
 
-        DateOnly chegada = new(2026, 8, 23);
-        Pessoa pessoa = new(id, "João Guedes");
-        pessoa.SucederVinculo(Situacao.Visitante, chegada, null, chegada);
+        Pessoa pessoa = Pessoa.Cadastrar(
+            hoje: new DateOnly(2026, 8, 23),
+            nome: "João Guedes",
+            convidadoPorId: null,
+            celular: null,
+            email: null,
+            dataNascimento: null,
+            estadoCivil: null,
+            dataCasamento: null,
+            profissao: null,
+            dataBatismo: null,
+            endereco: null).Value;
 
         context.Pessoas.Add(pessoa);
 
         await context.SaveChangesAsync();
+
+        return pessoa.Id;
     }
 
     public static ITable Tabela(string nome) =>

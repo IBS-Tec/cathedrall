@@ -86,18 +86,19 @@ public sealed class AniversariantesEndpointTests
     private static Pessoa Nova(
         string nome,
         DateOnly? nascimento = null,
-        DateOnly? casamento = null)
-    {
-        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), nome)
-        {
-            DataNascimento = nascimento,
-            DataCasamento = casamento,
-        };
-
-        pessoa.SucederVinculo(Situacao.Visitante, Chegada, null, Chegada);
-
-        return pessoa;
-    }
+        DateOnly? casamento = null) =>
+        Pessoa.Cadastrar(
+            hoje: Chegada,
+            nome: nome,
+            convidadoPorId: null,
+            celular: null,
+            email: null,
+            dataNascimento: nascimento,
+            estadoCivil: null,
+            dataCasamento: casamento,
+            profissao: null,
+            dataBatismo: null,
+            endereco: null).Value;
 
     private static string SemOsIds(string corpo) =>
         Regex.Replace(

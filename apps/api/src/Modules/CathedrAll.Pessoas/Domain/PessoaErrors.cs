@@ -14,5 +14,13 @@ internal static class PessoaErrors
 
     public static readonly Error DataRetroativa = Error.Validation(
         "Pessoa.DataRetroativa",
-        "A data não pode ser anterior ao histórico já registrado.");
+        "A data não pode ser anterior à situação atual da pessoa.");
+
+    public static readonly Error TransicaoInvalida = Error.Conflict(
+        "Pessoa.TransicaoInvalida",
+        "Esta mudança de situação não é permitida.");
+
+    public static readonly Error MotivoObrigatorio = Error.Validation(
+        "Pessoa.MotivoObrigatorio",
+        "O motivo é obrigatório.");
 }

@@ -1,10 +1,15 @@
 # Spec-0001 — Pessoas
 
-**Status:** Aprovada · **Data:** 2026-08-22 · **Revista em:** 2026-09-03 ·
+**Status:** Aprovada · **Data:** 2026-08-22 · **Revista em:** 2026-09-14 ·
 **Responsável:** Miquéias Filho
 
 **Revisões**
 
+- **2026-09-14** — RN-7 perde o parâmetro `data`: `ReconhecerAfastamento(motivo)` abre o
+  vínculo com a data de hoje. A regra recusava data retroativa e a RN-3 recusa data futura,
+  então só um valor passava — parâmetro com um valor válido só é o relógio, não entrada.
+  Sem ele, a data chutada deixa de ser recusável porque deixa de ser pedida. A RN-9 e a
+  linha de `Pessoa.DataRetroativa` na seção 6 acompanham. (#41)
 - **2026-09-03** — Seção 4 ganha `Anonimizada`: a RN-16 e a seção 6 já exigiam a marca do
   registro anonimizado, e a seção 4 não dizia onde ela mora. Seção 7 passa a dizer que
   `Motivo` restrito viaja como `null`, e o que essa escolha não resolve. Seção 11 ganha a
@@ -225,14 +230,15 @@ migration, porque o caminho fica gravado no `ModelSnapshot`.)*
   visitante — e serve a quem chega transferido e é apresentado logo depois.
 - **RN-6** — `RegistrarApresentacao(data)`: válida sem vínculo, ou de `Visitante`,
   `Afastado`, `Transferido`. Abre `Membro` com `DataInicio` = data da cerimônia.
-- **RN-7** — `ReconhecerAfastamento(motivo, data)`: válida só de `Membro`. Exige `Motivo`.
-  A data **não pode ser retroativa** — seria chute sobre quando a pessoa parou de vir, e
-  chute vira relatório errado. Registra-se o dia do reconhecimento.
+- **RN-7** — `ReconhecerAfastamento(motivo)`: válida só de `Membro`. Exige `Motivo`.
+  Registra-se o dia do reconhecimento: `DataInicio` é a data de hoje, e o método **não
+  recebe data**. Data informada seria chute sobre quando a pessoa parou de vir, e chute vira
+  relatório errado.
 - **RN-8** — `RegistrarTransferencia(destino, data)`: válida de `Membro` e `Afastado`. Exige
   o destino em `Motivo`. Não há integração com outro sistema.
 - **RN-9** — `RegistrarFalecimento(data)`: válida de qualquer situação exceto `Falecido`. A
-  data **pode ser retroativa**, ao contrário da RN-7: aqui o fato é conhecido e só a notícia
-  chegou tarde.
+  data **é informada e pode ser retroativa**, ao contrário da RN-7: aqui o fato é conhecido e
+  só a notícia chegou tarde.
 - **RN-10** — `Falecido` é terminal. Nenhuma transição parte dele.
 - **RN-11** — Não se volta para `Visitante` de situação nenhuma.
 - **RN-12** — Transição fora da matriz é recusada com `Conflict` → `409`
@@ -533,7 +539,7 @@ reescrever a qualquer momento.
 | `Pessoa.NomeObrigatorio` | 400 | Vazio depois de `Trim` (RN-13) |
 | `Pessoa.MotivoObrigatorio` | 400 | Afastamento ou transferência sem motivo |
 | `Pessoa.DataFutura` | 400 | Qualquer data no futuro (RN-3) |
-| `Pessoa.DataRetroativa` | 400 | Data que recua o histórico: anterior ao início do vínculo vigente (RN-2), ou afastamento com data no passado (RN-7) |
+| `Pessoa.DataRetroativa` | 400 | Data que recua o histórico: anterior ao início do vínculo vigente (RN-2) |
 | `Pessoa.AutoConvite` | 400 | `ConvidadoPorId` igual ao próprio `Id` (RN-20) |
 | `Pessoa.FusaoConsigoMesma` | 400 | `absorvidaId` igual a `{id}` |
 

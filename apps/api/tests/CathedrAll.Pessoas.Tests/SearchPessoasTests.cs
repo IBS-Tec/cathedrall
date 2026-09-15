@@ -82,7 +82,7 @@ public sealed class SearchPessoasTests
         await using ServiceProvider provider = Scenario.Provedor(connection);
 
         Pessoa pessoa = Nova("João Guedes");
-        pessoa.SucederVinculo(Situacao.Membro, Apresentacao, null, Apresentacao);
+        pessoa.RegistrarApresentacao(Apresentacao, Apresentacao);
 
         await SemearAsync(provider, pessoa);
 
@@ -131,7 +131,7 @@ public sealed class SearchPessoasTests
 
         Pessoa sobrevivente = Nova("João Guedes");
 
-        await SemearAsync(provider, sobrevivente, Nova("João Guedes", fundidaEm: sobrevivente.Id));
+        await SemearAsync(provider, sobrevivente, Absorvida("João Guedes", sobrevivente));
 
         PessoaEncontrada encontrada = Assert.Single((await BuscarAsync(provider, "joão")).Results);
 
@@ -151,21 +151,27 @@ public sealed class SearchPessoasTests
         Assert.Single(resposta.Results);
     }
 
-    private static Pessoa Nova(
-        string nome,
-        PessoaId? convidadoPor = null,
-        PessoaId? fundidaEm = null)
-    {
-        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), nome)
+    private static Pessoa Nova(string nome, PessoaId? convidadoPor = null) =>
+        Pessoa.Cadastrar(
+            hoje: Chegada,
+            nome: nome,
+            convidadoPorId: convidadoPor,
+            celular: null,
+            email: null,
+            dataNascimento: null,
+            estadoCivil: null,
+            dataCasamento: null,
+            profissao: null,
+            dataBatismo: null,
+            endereco: null).Value;
+
+    // Ainda não existe Fundir (RN-17): a marca entra pelo construtor. Sem vínculo, porque o
+    // que tira o absorvido da leitura é a marca, não a situação.
+    private static Pessoa Absorvida(string nome, Pessoa sobrevivente) =>
+        new(new PessoaId(Guid.CreateVersion7()), nome)
         {
-            ConvidadoPorId = convidadoPor,
-            FundidaEmId = fundidaEm,
+            FundidaEmId = sobrevivente.Id,
         };
-
-        pessoa.SucederVinculo(Situacao.Visitante, Chegada, null, Chegada);
-
-        return pessoa;
-    }
 
     private static async Task SemearAsync(ServiceProvider provider, params Pessoa[] pessoas)
     {

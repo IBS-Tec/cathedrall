@@ -10,6 +10,7 @@ public sealed class FichaEndpointTests
     private static readonly DateOnly Chegada = new(2024, 3, 12);
     private static readonly DateOnly Apresentacao = new(2024, 9, 15);
     private static readonly DateOnly Afastamento = new(2025, 6, 1);
+    private static readonly DateOnly Retorno = new(2025, 11, 9);
 
     [Fact]
     public async Task Id_inexistente_deve_responder_404_no_formato_do_ADR_0014()
@@ -36,7 +37,7 @@ public sealed class FichaEndpointTests
         await using PessoasApiFactory factory = new();
 
         Pessoa sobrevivente = Nova("Maria Souza");
-        Pessoa absorvida = Nova("Maria S.", sobrevivente.Id);
+        Pessoa absorvida = Absorvida("Maria S.", sobrevivente);
 
         HttpClient client = await factory.SemearAsync(sobrevivente, absorvida);
 
@@ -59,7 +60,7 @@ public sealed class FichaEndpointTests
     public async Task Pessoa_anonimizada_deve_vir_marcada_com_o_historico_preservado()
     {
         await using PessoasApiFactory factory = new();
-        Pessoa pessoa = ComHistorico(anonimizada: true);
+        Pessoa pessoa = AnonimizadaComHistorico();
         HttpClient client = await factory.SemearAsync(pessoa);
 
         string corpo = await LerFichaAsync(client, pessoa);
@@ -161,27 +162,51 @@ public sealed class FichaEndpointTests
         return await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
     }
 
-    private static Pessoa ComHistorico(bool anonimizada = false)
+    private static Pessoa ComHistorico()
     {
-        Pessoa pessoa = Nova("João Guedes", anonimizada: anonimizada);
+        Pessoa pessoa = Nova("João Guedes");
 
-        pessoa.SucederVinculo(Situacao.Membro, Apresentacao, null, Apresentacao);
-        pessoa.SucederVinculo(Situacao.Afastado, Afastamento, "Mudou de cidade", Afastamento);
+        pessoa.RegistrarApresentacao(Apresentacao, Apresentacao);
+        pessoa.ReconhecerAfastamento("Mudou de cidade", Afastamento);
 
         return pessoa;
     }
 
-    private static Pessoa Nova(string nome, PessoaId? fundidaEm = null, bool anonimizada = false)
+    // Ainda não existe Anonimizar (RN-16): a marca entra pelo construtor, e por isso o
+    // histórico começa sem vínculo — Cadastrar não aceita a marca.
+    private static Pessoa AnonimizadaComHistorico()
     {
-        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), nome)
+        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), "João Guedes")
         {
-            Endereco = new Endereco("52000000", "Rua das Flores", "123-A", null, "Grotão", "Recife", "PE"),
-            FundidaEmId = fundidaEm,
-            Anonimizada = anonimizada,
+            Anonimizada = true,
         };
 
-        pessoa.SucederVinculo(Situacao.Visitante, Chegada, null, Chegada);
+        pessoa.RegistrarApresentacao(Apresentacao, Apresentacao);
+        pessoa.ReconhecerAfastamento("Mudou de cidade", Afastamento);
+        pessoa.RegistrarApresentacao(Retorno, Retorno);
 
         return pessoa;
     }
+
+    private static Pessoa Nova(string nome) =>
+        Pessoa.Cadastrar(
+            hoje: Chegada,
+            nome: nome,
+            convidadoPorId: null,
+            celular: null,
+            email: null,
+            dataNascimento: null,
+            estadoCivil: null,
+            dataCasamento: null,
+            profissao: null,
+            dataBatismo: null,
+            endereco: new Endereco("52000000", "Rua das Flores", "123-A", null, "Grotão", "Recife", "PE")).Value;
+
+    // Ainda não existe Fundir (RN-17): a marca entra pelo construtor. Sem vínculo, porque a
+    // ficha do absorvido aponta o sobrevivente pela marca, não pela situação.
+    private static Pessoa Absorvida(string nome, Pessoa sobrevivente) =>
+        new(new PessoaId(Guid.CreateVersion7()), nome)
+        {
+            FundidaEmId = sobrevivente.Id,
+        };
 }
