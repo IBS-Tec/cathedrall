@@ -474,15 +474,19 @@ apontava para ele é repontado; `EscalaItem.PessoaId` não pode ser, porque o AD
 mão de FK entre módulos e `Pessoas` não conhece `Escalas`. É por isso que a fusão redireciona
 em vez de apagar.
 
-### `GET /api/pessoas/aniversariantes?from=2026-08-23&to=2026-08-29`
+### `GET /api/pessoas/aniversariantes?from=2026-08-17&to=2026-08-23`
 
 ```jsonc
 // 200
 { "aniversariantes": [
-  { "id": "…", "nome": "…", "tipo": "Nascimento", "data": "2026-08-25" },
-  { "id": "…", "nome": "…", "tipo": "Casamento",  "data": "2026-08-27" }
+  { "id": "…", "nome": "…", "tipo": "Nascimento", "data": "2026-08-19" },
+  { "id": "…", "nome": "…", "tipo": "Casamento",  "data": "2026-08-21" }
 ] }
 ```
+
+O intervalo é livre — `from` e `to` são do cliente, não da regra. O exemplo usa a semana do
+culto de 23/08 porque é o que a tela pede por padrão; a definição da semana está na rota da
+pauta, abaixo.
 
 Compara dia e mês, ignorando o ano. Exclui `Falecido` e `Transferido` (RN-25).
 
@@ -509,7 +513,7 @@ O que o dirigente do culto lê em voz alta, vindo do cadastro.
     { "id": "…", "nome": "João Guedes",
       "convidadoPor": { "id": "…", "nome": "Maria Souza" } } ],
   "aniversariantes": [
-    { "id": "…", "nome": "…", "tipo": "Nascimento", "data": "2026-08-25" } ] }
+    { "id": "…", "nome": "…", "tipo": "Nascimento", "data": "2026-08-19" } ] }
 ```
 
 **Duas listas numa chamada só**, o que normalmente eu evitaria. Justifica-se porque é uma
@@ -518,7 +522,17 @@ são duas chances de a tela ficar pela metade com a igreja olhando.
 
 `visitantes` são os cadastrados **naquele dia** — `DataInicio` do vínculo `Visitante` igual a
 `date`. `convidadoPor` vai junto porque é assim que se apresenta: *"temos hoje o João,
-convidado pela Maria."*
+convidado pela Maria."* Vêm ordenados por nome, ignorando acento: o dirigente pode tocar em
+atualizar no meio da leitura (seção 8), e a lista não pode voltar embaralhada.
+
+**A semana vai de segunda a domingo, e `date` é sempre o último dia dela.** Culto de domingo
+23/08 lê os aniversários de 17 a 23 — a semana que acabou de passar, que é a que a igreja
+viveu junta. É a mesma semana que a tela `/aniversariantes` chama de corrente. Está escrito
+aqui porque não se deduz do exemplo: das sete datas possíveis para `date`, seis caem no meio
+da semana e só o domingo mostra que ela termina nele.
+
+`aniversariantes` é a mesma consulta de `/api/pessoas/aniversariantes`, despachada com as
+duas pontas da semana — não uma segunda implementação da RN-25.
 
 **A rota mora sob `/api/pessoas` de propósito.** "Pauta do culto" é vocabulário de `Eventos`,
 que um dia terá hino, aviso e oferta. Este módulo entrega só a parte que vem do cadastro;
@@ -699,10 +713,10 @@ porque é assim que se apresenta.
 
 ### `/aniversariantes`
 
-Padrão: a semana corrente, em **duas listas — nascimento primeiro, casamento depois**, cada
-uma em ordem de data. A ordem é a da fala: o dirigente chama os aniversariantes e só então os
-casais. Uma lista misturada obrigaria quem está com o microfone na mão a separar os dois com
-o olho, na frente da igreja.
+Padrão: a semana corrente — de segunda ao domingo, como na seção 6 —, em **duas listas —
+nascimento primeiro, casamento depois**, cada uma em ordem de data. A ordem é a da fala: o
+dirigente chama os aniversariantes e só então os casais. Uma lista misturada obrigaria quem
+está com o microfone na mão a separar os dois com o olho, na frente da igreja.
 
 É lida em voz alta num domingo à noite, então precisa caber na tela de um celular e ser
 legível de longe. Quando uma das duas está vazia e a outra não, a vazia some ou se diz vazia
@@ -810,6 +824,9 @@ Só é bloqueante a pergunta que muda o modelo.
 - [ ] `POST /api/pessoas` e `PATCH /api/pessoas/{id}` (seção 6)
 - [ ] As quatro rotas de transição (seção 6)
 - [ ] `GET /api/pessoas/aniversariantes`: RN-25
+- [ ] `GET /api/pessoas/pauta?date=` — visitantes do dia e aniversariantes da semana numa
+      chamada só (seção 6). Depende da fatia acima: reaproveita aquela consulta em vez de
+      repetir a RN-25, e é só por isso que cabe numa sessão
 - [ ] `Anonimizar` e `Fundir`: RN-16, RN-17, RN-24
 - [ ] Conciliação da planilha: 90 linhas, 8 reenvios prováveis e 13 datas em texto livre
       marcados para decisão humana. Não é script — o dado desconhecido entra como nulo,

@@ -20,6 +20,7 @@ public static class PessoasEndpoints
         pessoas.MapGet("/", ListAsync).WithName("ListPessoas");
         pessoas.MapGet("/search", SearchAsync).WithName("SearchPessoas");
         pessoas.MapGet("/aniversariantes", ListAniversariantesAsync).WithName("ListAniversariantes");
+        pessoas.MapGet("/pauta", GetPautaAsync).WithName("GetPauta");
         pessoas.MapGet("/{id:guid}", GetFichaPessoaAsync).WithName("GetFichaPessoa");
 
         return builder;
@@ -77,6 +78,19 @@ public static class PessoasEndpoints
         Result<FichaPessoa> result = await sender
             .SendAsync<GetFichaPessoaQuery, Result<FichaPessoa>>(
                 new GetFichaPessoaQuery(id),
+                cancellationToken);
+
+        return result.ToOk();
+    }
+
+    private static async Task<Results<Ok<PautaResponse>, ProblemHttpResult>> GetPautaAsync(
+        DateOnly date,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        Result<PautaResponse> result = await sender
+            .SendAsync<GetPautaQuery, Result<PautaResponse>>(
+                new GetPautaQuery(date),
                 cancellationToken);
 
         return result.ToOk();
