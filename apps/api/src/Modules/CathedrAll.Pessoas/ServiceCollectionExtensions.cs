@@ -41,6 +41,10 @@ public static class ServiceCollectionExtensions
             IRequestHandler<GetFichaPessoaQuery, Result<FichaPessoa>>,
             GetFichaPessoaHandler>();
 
+        services.TryAddScoped<
+            IRequestHandler<GetPautaQuery, Result<PautaResponse>>,
+            GetPautaHandler>();
+
         return services;
     }
 

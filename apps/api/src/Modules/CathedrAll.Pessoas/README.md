@@ -5,13 +5,22 @@ O primeiro módulo de negócio. Implementa a
 invariante 4 do `CLAUDE.md`: membro e visitante são situação de vínculo, não entidades
 separadas ([ADR-0008](../../../../../docs/adr/0008-pessoa-como-raiz-unica.md)).
 
-> **Estado: o modelo, o anel de transação e duas rotas de leitura.**
+> **Estado: o modelo, os quatro atos de transição e cinco rotas de leitura.**
 > Existem `Pessoa` e `VinculoIgreja` no schema `pessoas`, com as invariantes do histórico
-> (RN-1 a RN-4) em `SucederVinculo`, as migrations, e o `PessoasTransactionBehavior`
-> registrado. **As rotas são `GET /api/pessoas/search` — a busca da recepção — e
-> `GET /api/pessoas` — a lista da secretaria.** Nenhuma escreve. Não existem os quatro
-> métodos de transição, nem cadastro, nem ficha, nem autenticação, nem audit log. Este README
-> descreve só o que já está escrito.
+> (RN-1 a RN-4) em `SucederVinculo`, os quatro métodos de transição (RN-5 a RN-12), as
+> migrations, e o `PessoasTransactionBehavior` registrado.
+>
+> | Rota | É |
+> | --- | --- |
+> | `GET /api/pessoas/search?q=` | a busca da recepção |
+> | `GET /api/pessoas?q=&situacao=&bairro=&page=&size=` | a lista da secretaria |
+> | `GET /api/pessoas/aniversariantes?from=&to=` | a lista de domingo |
+> | `GET /api/pessoas/pauta?date=` | o que o dirigente lê no culto |
+> | `GET /api/pessoas/{id}` | a ficha com o histórico |
+>
+> **Nenhuma escreve.** Os quatro atos de transição existem no agregado e **não têm rota**.
+> Não existem cadastro, `PATCH`, `Fundir`, `Anonimizar`, autenticação nem audit log. Este
+> README descreve só o que já está escrito.
 
 ## Estrutura
 
@@ -32,6 +41,7 @@ lugares.
 ```
 Application/
   GetFichaPessoa/       a query, o handler, FichaPessoa e os records que só ela usa
+  GetPauta/
   ListAniversariantes/
   ListPessoas/
   SearchPessoas/
@@ -42,8 +52,13 @@ Application/
 O nome da pasta é o nome da query sem o sufixo, então `Endpoints/` e `Application/` se leem
 em paralelo. **E a raiz é o alarme:** arquivo solto ali é declaração de que duas rotas
 dependem dele — hoje o `NomeFilter`, que a busca e a lista compartilham, e o `PessoaRef`, que
-a busca e a ficha compartilham. Se a raiz crescer, o que cresceu foi o acoplamento entre
-rotas, não a bagunça.
+a busca, a ficha e a pauta compartilham. Se a raiz crescer, o que cresceu foi o acoplamento
+entre rotas, não a bagunça.
+
+**`Aniversariante` é a exceção que confirma a regra**, e está em `ListAniversariantes/` mesmo
+sendo usado pela pauta. Ele não subiu para a raiz porque o dono é a rota de aniversariantes: a
+pauta o recebe pronto, despachando a query daquela fatia (abaixo). Quem move um record para a
+raiz é o compartilhamento entre iguais, não o reuso por quem chama.
 
 **Tudo é `internal`, exceto `ServiceCollectionExtensions` e `PessoasEndpoints`.** O host
 compõe o módulo por dois verbos e não alcança nada de dentro
@@ -57,7 +72,7 @@ contrato.
 assembly: a pergunta "onde isto é ligado?" precisa ter resposta grepável para um voluntário
 que chegou ontem.
 
-## As duas rotas, e a regra que as separa
+## A busca e a lista, e a regra que as separa
 
 A seção 6 da spec punha a busca da recepção e a lista paginada da secretaria na mesma
 `GET /api/pessoas`. **Elas foram separadas em rotas distintas**, e a spec foi emendada.
@@ -124,6 +139,55 @@ legíveis ganham de uma esperta.
 **A lista não herdou o `ROW_NUMBER` da busca.** A verruga de lá vem da subconsulta de
 `convidadoPor`, que correlaciona `pessoas` com `pessoas`. Aqui `situacao` e `desde` atravessam
 para `vinculos_igreja`, e um `LIMIT 1` basta.
+
+## `GET /api/pessoas/pauta?date=` — um handler que despacha outro
+
+É a única rota do módulo com **duas listas numa resposta**, e o único handler que injeta
+`ISender` para chamar outro handler. As duas coisas são deliberadas e custam explicação, então
+aqui está ela.
+
+**Duas listas porque é uma tela e um momento.** O dirigente lê em voz alta, de pé na frente,
+no wi-fi do salão. Duas requisições são duas chances de a tela ficar pela metade com a igreja
+olhando (seção 6 da spec). Não é o padrão da casa e não deve virar precedente: as outras
+rotas continuam com uma projeção cada.
+
+**`GetPautaHandler` despacha `ListAniversariantesQuery` em vez de repetir a consulta.** A
+RN-25 — comparar dia e mês, excluir `Falecido` e `Transferido`, resolver 29/02 em ano comum —
+mora em `ListAniversariantesHandler` e em nenhum outro lugar. A alternativa seria extrair a
+consulta para um tipo novo que os dois handlers chamassem; ela é mais limpa no papel e foi
+recusada porque criaria uma categoria de tipo que não existe neste módulo — nem handler, nem
+entidade — só para evitar uma chamada que o `ISender` já sabe fazer. Handler chamando handler
+é acoplamento em anel e merece desconfiança **quando há escrita**; aqui são duas leituras,
+fora do anel de transação, sem efeito colateral.
+
+O preço, para você não estranhar: cada `GET /pauta` produz **duas linhas** no
+`LoggingBehavior` — `ListAniversariantesQuery` aninhada dentro de `GetPautaQuery`, com a de
+dentro somando no tempo da de fora. É informação, não ruído.
+
+**A semana vai de segunda a domingo, e `date` é o último dia dela.** Culto de domingo 23/08 lê
+os aniversários de 17 a 23 — a semana que a igreja acabou de viver junta. Está em
+`WeekContaining`, que devolve `(Monday, Sunday)` justamente para que a regra se leia no ponto
+de chamada sem abrir o método. Das sete datas possíveis para `date`, seis caem no meio da
+semana e só o domingo revela onde ela termina, então o exemplo da spec não basta: a regra está
+escrita lá na seção 6, em palavras.
+
+**Os visitantes vêm ordenados por `NomeNormalizado`, e isso não é enfeite.** A tela tem botão
+de atualizar, porque a recepção pode cadastrar alguém durante o louvor (seção 8). Sem `ORDER
+BY`, a lista que o dirigente está lendo pode voltar embaralhada. Há teste, e ele passou
+**antes** da ordenação existir — o índice em `nome_normalizado` fez o Sqlite devolver em ordem
+por acidente do plano. Teste de ordenação sem `ORDER BY` explícito documenta intenção, não
+garante comportamento.
+
+**`FundidaEmId IS NULL` filtra os visitantes, e é a RN-24.** O cadastro não tem chave de
+idempotência de propósito (seção 6), então a recepcionista **vai** cadastrar o mesmo visitante
+duas vezes na rede ruim do salão, e a secretaria vai fundir. Sem o filtro, o dirigente lê
+"temos hoje o João… e o João" — o erro que a fusão existe para evitar, no momento exato em que
+ela deveria ter funcionado.
+
+O que **não** filtra é `Falecido` e `Transferido`. A RN-25 exclui os dois da lista de
+aniversariantes, e não há regra equivalente para visitantes: `visitantes` são os cadastrados
+naquele dia, e ponto — a seção 6 diz isso em uma frase. Filtrar por situação ali seria regra
+inventada no código.
 
 ## O bairro normalizado
 
@@ -194,6 +258,13 @@ São dois records de cinco campos, e **não um reusado**:
 
 Nenhum dos dois tem endereço, celular ou data de nascimento (seção 6 da spec). `PessoaDaLista`
 leva `bairro` — o digitado, nunca `BairroNormalizado`, que não aparece em resposta alguma.
+
+**`VisitanteDaPauta` é mais pobre ainda**: `id`, `nome` e `convidadoPor`, três campos. O
+dirigente precisa do nome para chamar e de quem convidou para apresentar — *"temos hoje o
+João, convidado pela Maria"* — e de mais nada. E repare no que a pauta **não** revela mesmo
+levando aniversariantes: sai a data deste ano, nunca a de nascimento. A RN-25 compara só dia e
+mês, então o ano nem sai do banco. Idade é dado pessoal que a lista lida em voz alta não
+precisa expor, e `PautaEndpointTests` afirma isso sobre o corpo HTTP.
 
 **Reusar um só record seria o argumento da separação de rotas se contradizendo:** em OpenAPI,
 path mais método é uma operação com um schema, e dois records é o que faz o cliente gerado da
