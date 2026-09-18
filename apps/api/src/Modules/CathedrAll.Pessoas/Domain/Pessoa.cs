@@ -23,23 +23,23 @@ internal sealed class Pessoa : AggregateRoot<PessoaId>
 
     public PessoaId? FundidaEmId { get; init; }
 
-    public bool Anonimizada { get; init; }
+    public bool Anonimizada { get; private set; }
 
-    public Celular? Celular { get; init; }
+    public Celular? Celular { get; private set; }
 
-    public Email? Email { get; init; }
+    public Email? Email { get; private set; }
 
-    public DateOnly? DataNascimento { get; init; }
+    public DateOnly? DataNascimento { get; private set; }
 
-    public EstadoCivil? EstadoCivil { get; init; }
+    public EstadoCivil? EstadoCivil { get; private set; }
 
-    public DateOnly? DataCasamento { get; init; }
+    public DateOnly? DataCasamento { get; private set; }
 
-    public string? Profissao { get; init; }
+    public string? Profissao { get; private set; }
 
-    public DateOnly? DataBatismo { get; init; }
+    public DateOnly? DataBatismo { get; private set; }
 
-    public Endereco? Endereco { get; init; }
+    public Endereco? Endereco { get; private set; }
 
     public IReadOnlyList<VinculoIgreja> Vinculos => _vinculos.AsReadOnly();
 
@@ -148,12 +148,41 @@ internal sealed class Pessoa : AggregateRoot<PessoaId>
         return SucederVinculo(Situacao.Falecido, data, null, hoje);
     }
 
+    internal Result Anonimizar()
+    {
+        if (Anonimizada)
+        {
+            return Result.Failure(PessoaErrors.Anonimizada);
+        }
+
+        const string Anonimizado = "ANONIMIZADO";
+
+        Nome = Anonimizado;
+        NomeNormalizado = Anonimizado;
+        Celular = null;
+        Email = null;
+        DataNascimento = null;
+        EstadoCivil = null;
+        DataCasamento = null;
+        Profissao = null;
+        DataBatismo = null;
+        Endereco = null;
+        Anonimizada = true;
+
+        return Result.Success();
+    }
+
     private Result SucederVinculo(
         Situacao situacao,
         DateOnly data,
         string? motivo,
         DateOnly hoje)
     {
+        if (Anonimizada)
+        {
+            return Result.Failure(PessoaErrors.Anonimizada);
+        }
+
         if (data > hoje)
         {
             return Result.Failure(PessoaErrors.DataFutura);

@@ -1,10 +1,17 @@
 # Spec-0001 — Pessoas
 
-**Status:** Aprovada · **Data:** 2026-08-22 · **Revista em:** 2026-09-14 ·
+**Status:** Aprovada · **Data:** 2026-08-22 · **Revista em:** 2026-09-18 ·
 **Responsável:** Miquéias Filho
 
 **Revisões**
 
+- **2026-09-18** — A RN-16 passa a dizer o que ela não faz: o `Motivo` do vínculo **não** é
+  substituído pela anonimização. Ele é histórico, que a própria regra manda preservar, e a
+  seção 7 já o entrega restrito a secretaria e pastor. Sem isso escrito, o critério "nenhuma
+  coluna guarda o nome original" se lê como se valesse para o schema inteiro, e a próxima
+  pessoa a consultar `vinculos_igreja` encontra um nome e conclui que há bug. A RN-16 também
+  ganha a recusa de escrita sobre registro anonimizado, que a RN-24 já tinha para o absorvido.
+  (#43)
 - **2026-09-14** — RN-7 perde o parâmetro `data`: `ReconhecerAfastamento(motivo)` abre o
   vínculo com a data de hoje. A regra recusava data retroativa e a RN-3 recusa data futura,
   então só um valor passava — parâmetro com um valor válido só é o relógio, não entrada.
@@ -258,7 +265,13 @@ em duas colunas.
   em `EscalaItem`.
 - **RN-16** — `Anonimizar()` substitui os dados pessoais, preserva `Id` e histórico de
   vínculo, marca o registro e é **irreversível**. Atende ao Art. 18 da LGPD sem quebrar as
-  escalas de anos anteriores. É operação de domínio, não script de banco.
+  escalas de anos anteriores. É operação de domínio, não script de banco. Escrita sobre
+  registro anonimizado é recusada com `Conflict`, como a RN-24 já fazia para o absorvido.
+  O `Motivo` do vínculo **não** é substituído: ele é parte do histórico que esta mesma regra
+  manda preservar, e nasce restrito a secretaria e pastor (seção 7). A consequência precisa
+  ser dita, porque não se deduz: o dado pessoal que sobrevive à anonimização é o que alguém
+  escreveu num `Motivo`, e o critério "nenhuma coluna guarda o nome original" vale para a
+  tabela de `Pessoa`, não para a de `VinculoIgreja`.
 - **RN-17** — `Fundir(outra)` unifica dois cadastros da mesma pessoa, preservando a união
   dos históricos. A ficha real já traz 8 linhas que são reenvio da mesma pessoa.
 - **RN-18** — Só `Nome` é obrigatório. Os demais campos ficam nulos até serem coletados, e
@@ -778,7 +791,9 @@ que é o mesmo que não ter log.
   não só alterá-la.
 - **Soft delete e retenção:** `Pessoa` nunca é removida fisicamente (RN-15). O direito à
   eliminação se atende por `Anonimizar()` (RN-16), que é coisa diferente de excluir e
-  precisa continuar sendo.
+  precisa continuar sendo. Ele não alcança o `Motivo` do vínculo, pela razão registrada na
+  RN-16 — o que faz do campo restrito da seção 7 o último lugar onde dado pessoal de alguém
+  anonimizado ainda mora.
 - **Menores de idade:** `DataNascimento` é obrigatória em parte por isso. O tratamento
   específico de menores — contato do responsável, consentimento — entra com o ministério
   infantil e está fora desta spec.

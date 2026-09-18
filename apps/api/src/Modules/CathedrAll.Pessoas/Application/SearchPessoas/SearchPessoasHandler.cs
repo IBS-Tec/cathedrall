@@ -28,6 +28,7 @@ internal sealed class SearchPessoasHandler(PessoasDbContext context)
 
         List<PessoaEncontrada> results = await context.Pessoas
             .Where(pessoa => sobreviventes.Contains(pessoa.Id))
+            .Where(pessoa => !pessoa.Anonimizada)
             .OrderBy(pessoa => pessoa.NomeNormalizado)
             .ThenBy(pessoa => pessoa.Id)
             .Take(MaximumResults)

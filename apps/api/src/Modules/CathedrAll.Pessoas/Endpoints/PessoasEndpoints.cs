@@ -22,6 +22,7 @@ public static class PessoasEndpoints
         pessoas.MapGet("/aniversariantes", ListAniversariantesAsync).WithName("ListAniversariantes");
         pessoas.MapGet("/pauta", GetPautaAsync).WithName("GetPauta");
         pessoas.MapGet("/{id:guid}", GetFichaPessoaAsync).WithName("GetFichaPessoa");
+        pessoas.MapPost("/{id:guid}/anonimizacao", AnonimizarAsync).WithName("Anonimizar");
 
         return builder;
     }
@@ -94,5 +95,18 @@ public static class PessoasEndpoints
                 cancellationToken);
 
         return result.ToOk();
+    }
+
+    private static async Task<Results<NoContent, ProblemHttpResult>> AnonimizarAsync(
+        Guid id,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        Result result = await sender
+            .SendAsync<AnonimizarCommand, Result>(
+                new AnonimizarCommand(id),
+                cancellationToken);
+
+        return result.ToNoContent();
     }
 }

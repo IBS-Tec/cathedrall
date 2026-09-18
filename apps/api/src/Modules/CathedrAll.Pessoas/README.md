@@ -5,7 +5,7 @@ O primeiro módulo de negócio. Implementa a
 invariante 4 do `CLAUDE.md`: membro e visitante são situação de vínculo, não entidades
 separadas ([ADR-0008](../../../../../docs/adr/0008-pessoa-como-raiz-unica.md)).
 
-> **Estado: o modelo, os quatro atos de transição e cinco rotas de leitura.**
+> **Estado: o modelo, os quatro atos de transição, cinco rotas de leitura e uma de escrita.**
 > Existem `Pessoa` e `VinculoIgreja` no schema `pessoas`, com as invariantes do histórico
 > (RN-1 a RN-4) em `SucederVinculo`, os quatro métodos de transição (RN-5 a RN-12), as
 > migrations, e o `PessoasTransactionBehavior` registrado.
@@ -17,10 +17,12 @@ separadas ([ADR-0008](../../../../../docs/adr/0008-pessoa-como-raiz-unica.md)).
 > | `GET /api/pessoas/aniversariantes?from=&to=` | a lista de domingo |
 > | `GET /api/pessoas/pauta?date=` | o que o dirigente lê no culto |
 > | `GET /api/pessoas/{id}` | a ficha com o histórico |
+> | `POST /api/pessoas/{id}/anonimizacao` | o Art. 18 da LGPD (RN-16) |
 >
-> **Nenhuma escreve.** Os quatro atos de transição existem no agregado e **não têm rota**.
-> Não existem cadastro, `PATCH`, `Fundir`, `Anonimizar`, autenticação nem audit log. Este
-> README descreve só o que já está escrito.
+> **A anonimização é a única escrita**, e o primeiro `ICommand` do módulo. Os quatro atos de
+> transição existem no agregado e **não têm rota**. Não existem cadastro, `PATCH`, `Fundir`,
+> autenticação nem audit log — inclusive a restrição da anonimização ao pastor, que é da
+> matriz de permissões e ainda não existe. Este README descreve só o que já está escrito.
 
 ## Estrutura
 
@@ -40,6 +42,7 @@ lugares.
 
 ```
 Application/
+  Anonimizar/           o único comando: AnonimizarCommand e o handler
   GetFichaPessoa/       a query, o handler, FichaPessoa e os records que só ela usa
   GetPauta/
   ListAniversariantes/
@@ -188,6 +191,56 @@ O que **não** filtra é `Falecido` e `Transferido`. A RN-25 exclui os dois da l
 aniversariantes, e não há regra equivalente para visitantes: `visitantes` são os cadastrados
 naquele dia, e ponto — a seção 6 diz isso em uma frase. Filtrar por situação ali seria regra
 inventada no código.
+
+## `POST /api/pessoas/{id}/anonimizacao` — a única escrita, e a mais definitiva
+
+Atende ao Art. 18 da LGPD **sem excluir a linha**: `Pessoa` nunca some fisicamente (RN-15),
+porque o ADR-0015 abriu mão de chave estrangeira entre módulos apoiado nisso e um `DELETE` de
+verdade viraria corrupção silenciosa em `EscalaItem`. O `Id` sobrevive à anonimização
+justamente para que a escala de 2024 continue apontando para alguém.
+
+**Quem apaga é o agregado.** `Pessoa.Anonimizar()` substitui os nove campos da ficha e liga a
+marca; o handler carrega, chama e devolve. Não há `SaveChanges` no handler — o
+`PessoasTransactionBehavior` fecha o anel, como em qualquer `ICommand`. Não existe caminho que
+desfaça: `Anonimizada` só é escrita como `true`, e um segundo `POST` responde `409`
+`Pessoa.Anonimizada` em vez de reanonimizar.
+
+**A troca de `init` por `private set` nos campos pessoais é o que torna isso possível**, e ela
+tem um efeito que aparece longe daqui: nenhum teste monta mais uma `Pessoa` por inicializador
+de objeto. Os fixtures passam por `Pessoa.Cadastrar(…)`, que é a única porta de entrada dos
+dados — e, de quebra, já abre o vínculo. O que ainda entra pelo construtor é a marca de fusão,
+porque `Fundir` (RN-17) não existe.
+
+**`Motivo` do vínculo não é anonimizado, e isso é decisão registrada** na RN-16 e na seção 9
+da spec. Ele é histórico — a mesma regra que manda preservar situação e datas —, e a seção 7
+já o entrega restrito a secretaria e pastor. A consequência: o critério "nenhuma coluna guarda
+o nome original" vale para a tabela `pessoas`, e o teste que o verifica varre `SELECT *`
+daquela tabela, não do schema. `Motivo_do_vinculo_deve_sobreviver_a_anonimizacao` é quem
+segura a decisão; se ela mudar, é esse que cai primeiro.
+
+**A guarda de escrita mora em `SucederVinculo`**, por onde os quatro atos passam — um `if`,
+não quatro. Ela roda **depois** da matriz da seção 5, então um ato que já era inválido continua
+respondendo `Pessoa.TransicaoInvalida`: um afastado anonimizado recebendo `ReconhecerAfastamento`
+ouve "transição inválida", não "registro anonimizado". Os dois são `409` e a tela não muda; o
+que muda é o `code`. Se a precedência importar, o lugar é um `if` no topo de cada ato.
+
+**As quatro leituras filtram; a ficha, não.** Busca, lista, pauta e aniversariantes excluem
+`Anonimizada`; `GET /api/pessoas/{id}` continua respondendo `200`, marcado, com o histórico —
+é o que a seção 8 pede ("mostra como anonimizada, sem ações de edição") e o que mantém o `Id`
+resolvendo. Sumir da busca não é sumir do sistema.
+
+Dois detalhes das consultas que não se deduzem:
+
+- **A busca filtra nas duas consultas, não numa.** A primeira casa o nome e resolve
+  `FundidaEmId ?? Id`; a segunda materializa. Sem o filtro na segunda, buscar pelo nome de um
+  registro absorvido devolveria a ficha **anonimizada** do sobrevivente.
+- **O nome de substituição é um valor de busca como outro qualquer.** Com `NomeNormalizado`
+  virando `ANONIMIZADO`, digitar "anon" na recepção listaria, com um termo só, exatamente quem
+  exerceu o Art. 18 — se o filtro não existisse. Há teste para o termo, e não só para o nome
+  antigo.
+
+Em aniversariantes o filtro é redundante hoje, porque `DataNascimento` e `DataCasamento` ficam
+nulas. Está lá assim mesmo: proteção implícita é a que some no próximo refactor.
 
 ## O bairro normalizado
 

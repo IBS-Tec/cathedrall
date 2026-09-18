@@ -3,6 +3,7 @@ using CathedrAll.Pessoas.Application;
 using CathedrAll.Pessoas.Domain;
 using CathedrAll.Pessoas.Infrastructure;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CathedrAll.Pessoas.Tests;
@@ -76,10 +77,13 @@ public sealed class ListAniversariantesTests
 
         Pessoa sobrevivente = Nova("Ana Souza", nascimento: new DateOnly(1990, 8, 25));
 
-        await SemearAsync(
+        await SemearAsync(provider, sobrevivente);
+
+        await SemearAbsorvidaAsync(
             provider,
             sobrevivente,
-            Absorvida("Ana S.", nascimento: new DateOnly(1990, 8, 25), sobrevivente));
+            "Ana S.",
+            nascimento: new DateOnly(1990, 8, 25));
 
         ListAniversariantesResponse resposta = await BuscarAsync(
             provider,
@@ -165,14 +169,24 @@ public sealed class ListAniversariantesTests
             dataBatismo: null,
             endereco: null).Value;
 
-    // Ainda não existe Fundir (RN-17): a marca entra pelo construtor. Sem vínculo, porque o
-    // que tira o absorvido da lista é a marca, não a situação.
-    private static Pessoa Absorvida(string nome, DateOnly nascimento, Pessoa sobrevivente) =>
-        new(new PessoaId(Guid.CreateVersion7()), nome)
-        {
-            DataNascimento = nascimento,
-            FundidaEmId = sobrevivente.Id,
-        };
+    // Ainda não existe Fundir (RN-17): a marca entra pela camada de dados, que é por onde ela
+    // vai entrar quando a fusão existir. Os dados pessoais vêm de Cadastrar, porque Anonimizar()
+    // fechou os setters (RN-16). O absorvido fica Visitante, e é a marca — não a situação — que
+    // o tira da lista.
+    private static async Task SemearAbsorvidaAsync(
+        ServiceProvider provider,
+        Pessoa sobrevivente,
+        string nome,
+        DateOnly nascimento)
+    {
+        using IServiceScope scope = provider.CreateScope();
+        PessoasDbContext context = scope.ServiceProvider.GetRequiredService<PessoasDbContext>();
+
+        EntityEntry<Pessoa> entrada = context.Pessoas.Add(Nova(nome, nascimento));
+        entrada.Property(pessoa => pessoa.FundidaEmId).CurrentValue = sobrevivente.Id;
+
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
 
     private static async Task SemearAsync(ServiceProvider provider, params Pessoa[] pessoas)
     {

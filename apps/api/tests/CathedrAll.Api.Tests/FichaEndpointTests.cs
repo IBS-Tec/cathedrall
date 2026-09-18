@@ -172,18 +172,17 @@ public sealed class FichaEndpointTests
         return pessoa;
     }
 
-    // Ainda não existe Anonimizar (RN-16): a marca entra pelo construtor, e por isso o
-    // histórico começa sem vínculo — Cadastrar não aceita a marca.
+    // A marca entra por Anonimizar() (RN-16), e ele vem por último: depois dele nenhum vínculo
+    // novo é aceito. O histórico começa sem o vínculo de chegada porque o que se verifica aqui
+    // são os três atos, não o cadastro.
     private static Pessoa AnonimizadaComHistorico()
     {
-        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), "João Guedes")
-        {
-            Anonimizada = true,
-        };
+        Pessoa pessoa = new(new PessoaId(Guid.CreateVersion7()), "João Guedes");
 
         pessoa.RegistrarApresentacao(Apresentacao, Apresentacao);
         pessoa.ReconhecerAfastamento("Mudou de cidade", Afastamento);
         pessoa.RegistrarApresentacao(Retorno, Retorno);
+        pessoa.Anonimizar();
 
         return pessoa;
     }

@@ -13,8 +13,11 @@ internal sealed class GetPautaHandler(
 {
     public async Task<Result<PautaResponse>> HandleAsync(GetPautaQuery request, CancellationToken cancellationToken)
     {
-        List<VisitanteDaPauta> visitantes = await context.Pessoas
+        IQueryable<Pessoa> eligible = context.Pessoas
             .Where(pessoa => pessoa.FundidaEmId == null)
+            .Where(pessoa => !pessoa.Anonimizada);
+
+        List<VisitanteDaPauta> visitantes = await eligible
             .Where(pessoa => pessoa.Vinculos.Any(
                 vinculo => vinculo.Situacao == Situacao.Visitante &&
                 vinculo.DataInicio == request.Date))
