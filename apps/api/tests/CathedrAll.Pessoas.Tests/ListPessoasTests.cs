@@ -173,6 +173,23 @@ public sealed class ListPessoasTests
     }
 
     [Fact]
+    public async Task Registro_anonimizado_nao_deve_aparecer_nem_ser_contado()
+    {
+        await using SqliteConnection connection = await Scenario.AbrirAsync();
+        await using ServiceProvider provider = Scenario.Provedor(connection);
+
+        Pessoa anonimizada = Nova("João Guedes");
+        anonimizada.Anonimizar();
+
+        await SemearAsync(provider, Nova("Maria Souza"), anonimizada);
+
+        ListPessoasResponse resposta = await ListarAsync(provider);
+
+        Assert.Equal("Maria Souza", Assert.Single(resposta.Items).Nome);
+        Assert.Equal(1, resposta.Total);
+    }
+
+    [Fact]
     public async Task Os_tres_filtros_devem_valer_ao_mesmo_tempo()
     {
         await using SqliteConnection connection = await Scenario.AbrirAsync();

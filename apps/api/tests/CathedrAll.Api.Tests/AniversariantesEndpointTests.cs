@@ -66,13 +66,18 @@ public sealed class AniversariantesEndpointTests
         await using PessoasApiFactory factory = new();
 
         HttpClient client = await factory.SemearAsync(
-            new Pessoa(new PessoaId(Guid.CreateVersion7()), "João Guedes")
-            {
-                Celular = new Celular("+5581999998888"),
-                Email = new Email("joao@exemplo.com"),
-                DataNascimento = new DateOnly(1990, 8, 25),
-                Endereco = new Endereco(null, null, null, null, "Boa Viagem", null, null),
-            });
+            Pessoa.Cadastrar(
+                hoje: Chegada,
+                nome: "João Guedes",
+                convidadoPorId: null,
+                celular: new Celular("+5581999998888"),
+                email: new Email("joao@exemplo.com"),
+                dataNascimento: new DateOnly(1990, 8, 25),
+                estadoCivil: null,
+                dataCasamento: null,
+                profissao: null,
+                dataBatismo: null,
+                endereco: new Endereco(null, null, null, null, "Boa Viagem", null, null)).Value);
 
         string corpo = await BuscarAsync(client, "2026-08-23", "2026-08-29");
 

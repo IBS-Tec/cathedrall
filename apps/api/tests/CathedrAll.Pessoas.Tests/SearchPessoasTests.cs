@@ -139,6 +139,40 @@ public sealed class SearchPessoasTests
     }
 
     [Fact]
+    public async Task Registro_anonimizado_nao_deve_aparecer_na_busca()
+    {
+        await using SqliteConnection connection = await Scenario.AbrirAsync();
+        await using ServiceProvider provider = Scenario.Provedor(connection);
+
+        Pessoa pessoa = Nova("João Guedes");
+        pessoa.Anonimizar();
+
+        await SemearAsync(provider, pessoa);
+
+        Assert.Empty((await BuscarAsync(provider, "joão")).Results);
+
+        // O nome de substituição também não pode ser chave de busca: senão a recepção lista,
+        // com um termo só, exatamente quem exerceu o Art. 18.
+        Assert.Empty((await BuscarAsync(provider, "anonimizado")).Results);
+    }
+
+    [Fact]
+    public async Task Registro_absorvido_por_quem_foi_anonimizado_nao_deve_voltar()
+    {
+        await using SqliteConnection connection = await Scenario.AbrirAsync();
+        await using ServiceProvider provider = Scenario.Provedor(connection);
+
+        Pessoa sobrevivente = Nova("João Guedes");
+        sobrevivente.Anonimizar();
+
+        // O absorvido guarda o nome antigo e resolve para o sobrevivente: sem o filtro na
+        // segunda consulta, buscar pelo nome dele devolveria a ficha anonimizada.
+        await SemearAsync(provider, sobrevivente, Absorvida("João Guedes", sobrevivente));
+
+        Assert.Empty((await BuscarAsync(provider, "joão")).Results);
+    }
+
+    [Fact]
     public async Task Pessoa_sem_vinculo_nao_deve_derrubar_a_busca()
     {
         await using SqliteConnection connection = await Scenario.AbrirAsync();

@@ -35,6 +35,22 @@ public sealed class GetPautaTests
     }
 
     [Fact]
+    public async Task Visitante_anonimizado_nao_deve_ser_lido_no_culto()
+    {
+        await using SqliteConnection connection = await Scenario.AbrirAsync();
+        await using ServiceProvider provider = Provedor(connection);
+
+        Pessoa anonimizada = Visitante("Ana Souza", DomingoDoCulto);
+        anonimizada.Anonimizar();
+
+        await SemearAsync(provider, anonimizada, Visitante("Bento Lima", DomingoDoCulto));
+
+        PautaResponse pauta = await BuscarAsync(provider, DomingoDoCulto);
+
+        Assert.Equal(["Bento Lima"], Nomes(pauta));
+    }
+
+    [Fact]
     public async Task Visitante_deve_vir_com_quem_o_convidou()
     {
         await using SqliteConnection connection = await Scenario.AbrirAsync();

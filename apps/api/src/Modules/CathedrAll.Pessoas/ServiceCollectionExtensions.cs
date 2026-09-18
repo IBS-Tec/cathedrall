@@ -45,6 +45,10 @@ public static class ServiceCollectionExtensions
             IRequestHandler<GetPautaQuery, Result<PautaResponse>>,
             GetPautaHandler>();
 
+        services.TryAddScoped<
+            IRequestHandler<AnonimizarCommand, Result>,
+            AnonimizarCommandHandler>();
+
         return services;
     }
 

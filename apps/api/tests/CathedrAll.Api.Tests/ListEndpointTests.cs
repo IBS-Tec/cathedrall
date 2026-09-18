@@ -47,13 +47,18 @@ public sealed class ListEndpointTests
         await using PessoasApiFactory factory = new();
 
         HttpClient client = await factory.SemearAsync(
-            new Pessoa(new PessoaId(Guid.CreateVersion7()), "João Guedes")
-            {
-                Celular = new Celular("+5581999998888"),
-                Email = new Email("joao@exemplo.com"),
-                DataNascimento = new DateOnly(1990, 3, 12),
-                Endereco = new Endereco("52000000", "Rua das Flores", "123-A", null, "Grotão", "Recife", "PE"),
-            });
+            Pessoa.Cadastrar(
+                hoje: Chegada,
+                nome: "João Guedes",
+                convidadoPorId: null,
+                celular: new Celular("+5581999998888"),
+                email: new Email("joao@exemplo.com"),
+                dataNascimento: new DateOnly(1990, 3, 12),
+                estadoCivil: null,
+                dataCasamento: null,
+                profissao: null,
+                dataBatismo: null,
+                endereco: new Endereco("52000000", "Rua das Flores", "123-A", null, "Grotão", "Recife", "PE")).Value);
 
         string corpo = await ListarAsync(client, string.Empty);
 

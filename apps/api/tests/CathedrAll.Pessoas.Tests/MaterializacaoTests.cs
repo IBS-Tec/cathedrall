@@ -10,6 +10,8 @@ public sealed class MaterializacaoTests
 {
     private static readonly PessoaId Convite = new(Guid.CreateVersion7());
 
+    private static readonly DateOnly Chegada = new(2026, 8, 23);
+
     [Fact]
     public async Task Pessoa_completa_deve_sobreviver_a_ida_e_volta_ao_banco()
     {
@@ -112,16 +114,16 @@ public sealed class MaterializacaoTests
     }
 
     private static Pessoa Completa() =>
-        new(new PessoaId(Guid.CreateVersion7()), "João Guedes")
-        {
-            ConvidadoPorId = Convite,
-            Celular = new Celular("+5581999998888"),
-            Email = new Email("joao@exemplo.com"),
-            DataNascimento = new DateOnly(1990, 3, 12),
-            EstadoCivil = EstadoCivil.Casado,
-            DataCasamento = new DateOnly(2015, 6, 20),
-            Profissao = "Eletricista",
-            DataBatismo = new DateOnly(2010, 8, 1),
-            Endereco = new Endereco("52000000", "Rua das Flores", "123-A", "Apto 2", "Boa Viagem", "Recife", "PE"),
-        };
+        Pessoa.Cadastrar(
+            hoje: Chegada,
+            nome: "João Guedes",
+            convidadoPorId: Convite,
+            celular: new Celular("+5581999998888"),
+            email: new Email("joao@exemplo.com"),
+            dataNascimento: new DateOnly(1990, 3, 12),
+            estadoCivil: EstadoCivil.Casado,
+            dataCasamento: new DateOnly(2015, 6, 20),
+            profissao: "Eletricista",
+            dataBatismo: new DateOnly(2010, 8, 1),
+            endereco: new Endereco("52000000", "Rua das Flores", "123-A", "Apto 2", "Boa Viagem", "Recife", "PE")).Value;
 }

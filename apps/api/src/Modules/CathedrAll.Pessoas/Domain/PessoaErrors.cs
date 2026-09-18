@@ -23,4 +23,8 @@ internal static class PessoaErrors
     public static readonly Error MotivoObrigatorio = Error.Validation(
         "Pessoa.MotivoObrigatorio",
         "O motivo é obrigatório.");
+
+    public static readonly Error Anonimizada = Error.Conflict(
+        "Pessoa.Anonimizada",
+        "Esta pessoa foi anonimizada.");
 }

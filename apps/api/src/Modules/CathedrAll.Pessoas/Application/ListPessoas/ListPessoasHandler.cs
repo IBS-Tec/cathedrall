@@ -19,8 +19,12 @@ internal sealed class ListPessoasHandler(PessoasDbContext context)
         int page = Math.Max(request.Page ?? 1, 1);
         int size = Math.Clamp(request.Size ?? DefaultSize, 1, MaximumSize);
 
+        IQueryable<Pessoa> eligible = context.Pessoas
+            .Where(pessoa => pessoa.FundidaEmId == null)
+            .Where(pessoa => !pessoa.Anonimizada);
+
         IQueryable<Pessoa> pessoas = NomeFilter.Apply(
-            context.Pessoas.Where(pessoa => pessoa.FundidaEmId == null),
+            eligible,
             NomeFilter.Tokenize(request.Term));
 
         if (request.Situacao is Situacao situacao)

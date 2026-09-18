@@ -20,6 +20,7 @@ internal sealed class ListAniversariantesHandler(PessoasDbContext context)
 
         IQueryable<Pessoa> eligible = context.Pessoas
             .Where(pessoa => pessoa.FundidaEmId == null)
+            .Where(pessoa => !pessoa.Anonimizada)
             .Where(pessoa => !pessoa.Vinculos.Any(vinculo =>
                 vinculo.DataFim == null &&
                 (vinculo.Situacao == Situacao.Falecido || vinculo.Situacao == Situacao.Transferido)));
