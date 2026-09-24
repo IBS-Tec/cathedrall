@@ -3,7 +3,8 @@ using CathedrAll.Pessoas.Domain;
 
 namespace CathedrAll.Pessoas.Tests;
 
-// Um teste por regra da seção 5 da spec. A varredura exaustiva da matriz é outra tarefa.
+// Um teste por regra da seção 5 da spec. A varredura exaustiva da matriz, célula por célula,
+// está em MatrizDeTransicoesTests.
 public sealed class TransicoesDeVinculoTests
 {
     private static readonly DateOnly Hoje = new(2026, 8, 25);

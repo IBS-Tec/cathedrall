@@ -391,6 +391,16 @@ resposta deixou de testar a API.
 varredura de tudo que menciona `PessoasDbContext` — e não por uma lista fixa de tipos, porque
 o conjunto de serviços que o EF registra por contexto mudou entre versões.
 
+**A matriz de transições da seção 5 tem teste próprio**, `MatrizDeTransicoesTests`: os 25
+pares de situação mais as 5 entradas de cadastro, gerados de `Enum.GetValues<Situacao>()`. A
+tabela-verdade está escrita célula por célula em `Matriz`, com a condição de cada uma (exige
+motivo, aceita data retroativa), e **sem braço padrão**: acrescentar um valor a `Situacao`
+deixa o teste vermelho nos casos da linha e da coluna novas, como "SEM DECISÃO". Isso é o
+desenho, não um efeito colateral — decida as células na spec e em `Matriz`. As células sem ato
+(a coluna Visitante, e cadastro → Afastado/Transferido/Falecido) são recusadas pela assinatura:
+o teste verifica que não há método que leve até lá. A saída do `dotnet test` lê como a própria
+tabela: `Matriz: Membro → Afastado — permitida, exige motivo`.
+
 **Para ver o SQL de verdade**, o que compila não basta: um teste descartável com
 `LogTo(linha => log.AppendLine(linha), [DbLoggerCategory.Database.Command.Name], LogLevel.Information)`
 e um `Assert.Fail(log.ToString())` no fim. Foi assim que o `ROW_NUMBER` acima apareceu. Vale
